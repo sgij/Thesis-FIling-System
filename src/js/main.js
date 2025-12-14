@@ -1,0 +1,2346 @@
+// Modern Filing System Application with Custom Password Support
+class ModernFilingSystem {
+    constructor() {
+        this.files = JSON.parse(localStorage.getItem('modernFilingFiles')) || [];
+        this.secureFiles = JSON.parse(localStorage.getItem('modernSecureFiles')) || [];
+        this.settings = JSON.parse(localStorage.getItem('modernFilingSettings')) || this.getDefaultSettings();
+        this.currentPage = 'dashboard';
+        this.currentView = 'grid';
+        this.notifications = [];
+
+        this.init();
+    }
+
+    getDefaultSettings() {
+        return {
+            autoSave: true,
+            notifications: true,
+            theme: 'dark',
+            autoBackup: false,
+            encryptByDefault: false
+        };
+    }
+
+    init() {
+        this.showLoadingScreen();
+
+        setTimeout(() => {
+            this.hideLoadingScreen();
+            this.setupEventListeners();
+            this.setupNavigation();
+            this.setupDragAndDrop();
+            this.updateStats();
+            this.renderCurrentPage();
+            this.updateStorageInfo();
+            this.loadTheme();
+            this.generateSampleActivity();
+            this.setupPasswordInputs();
+        }, 2000);
+    }
+
+    showLoadingScreen() {
+        const loadingScreen = document.getElementById('loadingScreen');
+        const mainApp = document.getElementById('mainApp');
+
+        loadingScreen.style.display = 'flex';
+        mainApp.classList.add('hidden');
+    }
+
+    hideLoadingScreen() {
+        const loadingScreen = document.getElementById('loadingScreen');
+        const mainApp = document.getElementById('mainApp');
+
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => {
+            loadingScreen.style.display = 'none';
+            mainApp.classList.remove('hidden');
+        }, 500);
+    }
+
+    setupPasswordInputs() {
+        // Setup password strength checker
+        const customPassword = document.getElementById('customPassword');
+        if (customPassword) {
+            customPassword.addEventListener('input', (e) => {
+                this.checkPasswordStrength(e.target.value);
+            });
+        }
+
+        // Setup radio button handlers
+        document.querySelectorAll('input[name="passwordType"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                this.handlePasswordTypeChange(e.target.value);
+            });
+        });
+    }
+
+    checkPasswordStrength(password) {
+        const strengthBar = document.querySelector('.strength-fill');
+        const strengthText = document.querySelector('.strength-text');
+
+        if (!strengthBar || !strengthText) return;
+
+        let strength = 0;
+        let strengthLabel = '';
+
+        if (password.length === 0) {
+            strengthLabel = 'Enter a password';
+            strength = 0;
+        } else if (password.length < 6) {
+            strengthLabel = 'Too short';
+            strength = 1;
+        } else {
+            // Check password complexity
+            const hasLower = /[a-z]/.test(password);
+            const hasUpper = /[A-Z]/.test(password);
+            const hasNumbers = /\d/.test(password);
+            const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+            const isLongEnough = password.length >= 8;
+
+            const complexityScore = [hasLower, hasUpper, hasNumbers, hasSpecial, isLongEnough].filter(Boolean).length;
+
+            if (complexityScore < 2) {
+                strength = 1;
+                strengthLabel = 'Weak';
+            } else if (complexityScore < 3) {
+                strength = 2;
+                strengthLabel = 'Fair';
+            } else if (complexityScore < 4) {
+                strength = 3;
+                strengthLabel = 'Good';
+            } else {
+                strength = 4;
+                strengthLabel = 'Strong';
+            }
+        }
+
+        // Update UI
+        strengthBar.className = 'strength-fill';
+        if (strength === 1) strengthBar.classList.add('weak');
+        else if (strength === 2) strengthBar.classList.add('fair');
+        else if (strength === 3) strengthBar.classList.add('good');
+        else if (strength === 4) strengthBar.classList.add('strong');
+
+        strengthText.textContent = strengthLabel;
+    }
+
+    handlePasswordTypeChange(type) {
+        const customPasswordInput = document.querySelector('.custom-password-input');
+        const autoPasswordDisplay = document.getElementById('autoPasswordDisplay');
+        const generatedPasswordSpan = document.getElementById('generatedPassword');
+
+        if (type === 'custom') {
+            if (customPasswordInput) customPasswordInput.style.display = 'block';
+            if (autoPasswordDisplay) autoPasswordDisplay.style.display = 'none';
+        } else if (type === 'auto') {
+            if (customPasswordInput) customPasswordInput.style.display = 'none';
+            if (autoPasswordDisplay) autoPasswordDisplay.style.display = 'block';
+
+            // Generate a secure password
+            const generatedPassword = this.generateSecurePassword();
+            if (generatedPasswordSpan) generatedPasswordSpan.textContent = generatedPassword;
+        }
+    }
+
+    generateSecurePassword() {
+        const length = 12;
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+        let password = "";
+
+        // Ensure at least one character from each category
+        password += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)]; // lowercase
+        password += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)]; // uppercase
+        password += "0123456789"[Math.floor(Math.random() * 10)]; // number
+        password += "!@#$%^&*"[Math.floor(Math.random() * 8)]; // special
+
+        // Fill the rest randomly
+        for (let i = password.length; i < length; i++) {
+            password += charset[Math.floor(Math.random() * charset.length)];
+        }
+
+        // Shuffle the password
+        return password.split('').sort(() => Math.random() - 0.5).join('');
+    }
+
+    getEncryptionPassword() {
+        const passwordType = document.querySelector('input[name="passwordType"]:checked')?.value;
+
+        if (passwordType === 'custom') {
+            const customPassword = document.getElementById('customPassword')?.value;
+            if (!customPassword || customPassword.length < 6) {
+                this.addNotification('Password must be at least 6 characters long', 'error');
+                return null;
+            }
+            return customPassword;
+        } else if (passwordType === 'auto') {
+            const generatedPassword = document.getElementById('generatedPassword')?.textContent;
+            return generatedPassword || this.generateSecurePassword();
+        }
+
+        return null;
+    }
+
+    setupEventListeners() {
+        // File input
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                this.handleFileUpload(e.target.files);
+            });
+        }
+
+        // Global search
+        const globalSearch = document.getElementById('globalSearch');
+        if (globalSearch) {
+            globalSearch.addEventListener('input', (e) => {
+                this.handleGlobalSearch(e.target.value);
+            });
+
+            // Close search results when clicking outside
+            document.addEventListener('click', (e) => {
+                const searchContainer = document.querySelector('.search-container');
+                if (searchContainer && !searchContainer.contains(e.target)) {
+                    const searchSuggestions = document.getElementById('searchSuggestions');
+                    if (searchSuggestions) {
+                        searchSuggestions.classList.remove('active');
+                    }
+                }
+            });
+        }
+
+        // Notification button
+        const notificationBtn = document.getElementById('notificationBtn');
+        if (notificationBtn) {
+            notificationBtn.addEventListener('click', () => {
+                this.toggleNotificationPanel();
+            });
+        }
+
+        // Import functionality
+        const importInput = document.getElementById('importInput');
+        if (importInput) {
+            importInput.addEventListener('change', (e) => {
+                if (e.target.files[0]) {
+                    this.importData(e.target.files[0]);
+                }
+            });
+        }
+
+        // View controls
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.switchView(e.target.dataset.view);
+            });
+        });
+
+        // Filter controls
+        const fileTypeFilter = document.getElementById('fileTypeFilter');
+        const sortFilter = document.getElementById('sortFilter');
+
+        if (fileTypeFilter) {
+            fileTypeFilter.addEventListener('change', () => this.applyFilters());
+        }
+
+        if (sortFilter) {
+            sortFilter.addEventListener('change', () => this.applyFilters());
+        }
+
+        // Modal close buttons
+        document.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', () => this.closeModals());
+        });
+
+        // Click outside modal to close
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.closeModals();
+                }
+            });
+        });
+    }
+
+    setupNavigation() {
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const page = e.currentTarget.dataset.page;
+                this.switchPage(page);
+
+                // Update active state
+                document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+            });
+        });
+    }
+
+    setupDragAndDrop() {
+        const uploadZone = document.getElementById('uploadZone');
+        if (!uploadZone) return;
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            this.handleFileUpload(e.dataTransfer.files);
+        });
+
+        uploadZone.addEventListener('click', () => {
+            document.getElementById('fileInput').click();
+        });
+    }
+
+    switchPage(pageName) {
+        // Hide all pages
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.remove('active');
+        });
+
+        // Show selected page
+        const targetPage = document.getElementById(pageName);
+        if (targetPage) {
+            targetPage.classList.add('active');
+            this.currentPage = pageName;
+            this.renderCurrentPage();
+        }
+    }
+
+    renderCurrentPage() {
+        switch(this.currentPage) {
+            case 'dashboard':
+                this.renderDashboard();
+                break;
+            case 'files':
+                this.renderFiles();
+                break;
+            case 'upload':
+                this.renderUploadPage();
+                break;
+            case 'recent':
+                this.renderRecentFiles();
+                break;
+            case 'secure':
+                this.renderSecureFiles();
+                break;
+            case 'backup':
+                this.renderBackupPage();
+                break;
+            case 'analytics':
+                this.renderAnalytics();
+                break;
+            case 'settings':
+                this.renderSettings();
+                break;
+        }
+    }
+
+    renderDashboard() {
+        this.updateStats();
+        this.renderRecentActivity();
+    }
+
+    updateStats() {
+        const totalFiles = this.files.length + this.secureFiles.length;
+        const secureCount = this.secureFiles.length;
+        const recentCount = this.getRecentFilesCount();
+
+        // Update dashboard stats
+        const dashTotalFiles = document.getElementById('dashTotalFiles');
+        const dashSecureFiles = document.getElementById('dashSecureFiles');
+        const dashRecentFiles = document.getElementById('dashRecentFiles');
+
+        if (dashTotalFiles) dashTotalFiles.textContent = totalFiles;
+        if (dashSecureFiles) dashSecureFiles.textContent = secureCount;
+        if (dashRecentFiles) dashRecentFiles.textContent = recentCount;
+
+        // Update sidebar counts
+        const totalFileCount = document.getElementById('totalFileCount');
+        const secureFileCount = document.getElementById('secureFileCount');
+
+        if (totalFileCount) totalFileCount.textContent = totalFiles;
+        if (secureFileCount) secureFileCount.textContent = secureCount;
+
+        // Update notification count
+        const notificationCount = document.getElementById('notificationCount');
+        if (notificationCount) {
+            notificationCount.textContent = this.notifications.length;
+            notificationCount.style.display = this.notifications.length > 0 ? 'block' : 'none';
+        }
+    }
+
+    getRecentFilesCount() {
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const allFiles = [...this.files, ...this.secureFiles];
+        return allFiles.filter(file => new Date(file.uploadDate) > oneDayAgo).length;
+    }
+
+    updateStorageInfo() {
+        const totalSize = this.getTotalStorageSize();
+        const maxSize = 100 * 1024 * 1024; // 100MB limit for demo
+        const percentage = (totalSize / maxSize) * 100;
+
+        const storageBar = document.getElementById('storageBar');
+        const storageUsed = document.getElementById('storageUsed');
+        const storageTotal = document.getElementById('storageTotal');
+
+        if (storageBar) storageBar.style.width = `${Math.min(percentage, 100)}%`;
+        if (storageUsed) storageUsed.textContent = this.formatFileSize(totalSize);
+        if (storageTotal) storageTotal.textContent = this.formatFileSize(maxSize);
+    }
+
+    getTotalStorageSize() {
+        const allFiles = [...this.files, ...this.secureFiles];
+        return allFiles.reduce((total, file) => total + (file.rawSize || 1024), 0);
+    }
+
+    handleFileUpload(files) {
+        if (!files || files.length === 0) return;
+
+        const encryptUpload = document.getElementById('encryptUpload');
+        const shouldEncrypt = encryptUpload ? encryptUpload.checked : false;
+
+        let encryptionPassword = null;
+        if (shouldEncrypt) {
+            encryptionPassword = this.getEncryptionPassword();
+            if (!encryptionPassword) {
+                return; // Error message already shown in getEncryptionPassword
+            }
+        }
+
+        this.showUploadProgress(files.length);
+
+        Array.from(files).forEach((file, index) => {
+            setTimeout(() => {
+                const fileData = {
+                    id: this.generateId(),
+                    name: file.name,
+                    size: this.formatFileSize(file.size),
+                    rawSize: file.size,
+                    type: this.getFileType(file.name),
+                    uploadDate: new Date().toISOString(),
+                    encrypted: shouldEncrypt,
+                    content: null
+                };
+
+                if (shouldEncrypt) {
+                    fileData.password = encryptionPassword; // Store the actual password
+                    this.secureFiles.push(fileData);
+                    localStorage.setItem('modernSecureFiles', JSON.stringify(this.secureFiles));
+                } else {
+                    this.files.push(fileData);
+                    localStorage.setItem('modernFilingFiles', JSON.stringify(this.files));
+                }
+
+                this.updateUploadProgress(index + 1, files.length);
+                this.addNotification(`File "${file.name}" uploaded successfully${shouldEncrypt ? ' and encrypted' : ''}`, 'success');
+
+                if (index === files.length - 1) {
+                    setTimeout(() => {
+                        this.hideUploadProgress();
+                        this.updateStats();
+                        this.updateStorageInfo();
+                        this.renderCurrentPage();
+                        this.addActivity('upload', `Uploaded ${files.length} file${files.length > 1 ? 's' : ''}${shouldEncrypt ? ' with encryption' : ''}`);
+
+                        // Reset form
+                        this.resetUploadForm();
+                    }, 500);
+                }
+            }, index * 300);
+        });
+
+        // Clear file input
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput) fileInput.value = '';
+    }
+
+    resetUploadForm() {
+        // Reset encryption checkbox
+        const encryptUpload = document.getElementById('encryptUpload');
+        if (encryptUpload) encryptUpload.checked = false;
+
+        // Hide password input group
+        const passwordInputGroup = document.getElementById('passwordInputGroup');
+        if (passwordInputGroup) passwordInputGroup.style.display = 'none';
+
+        // Clear password inputs
+        const customPassword = document.getElementById('customPassword');
+        if (customPassword) customPassword.value = '';
+
+        // Reset radio buttons
+        const customRadio = document.querySelector('input[name="passwordType"][value="custom"]');
+        if (customRadio) customRadio.checked = true;
+
+        // Reset password strength indicator
+        this.checkPasswordStrength('');
+    }
+
+    showUploadProgress(totalFiles) {
+        const uploadProgress = document.getElementById('uploadProgress');
+        if (!uploadProgress) return;
+
+        uploadProgress.style.display = 'block';
+        uploadProgress.innerHTML = `
+            <div class="progress-header">
+                <h4>Uploading Files...</h4>
+                <span class="progress-text">0 / ${totalFiles} files</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 0%"></div>
+            </div>
+        `;
+    }
+
+    updateUploadProgress(current, total) {
+        const progressText = document.querySelector('.progress-text');
+        const progressFill = document.querySelector('.progress-fill');
+
+        if (progressText) progressText.textContent = `${current} / ${total} files`;
+        if (progressFill) progressFill.style.width = `${(current / total) * 100}%`;
+    }
+
+    hideUploadProgress() {
+        const uploadProgress = document.getElementById('uploadProgress');
+        if (uploadProgress) {
+            setTimeout(() => {
+                uploadProgress.style.display = 'none';
+            }, 1000);
+        }
+    }
+
+    generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    getFileType(filename) {
+        const extension = filename.split('.').pop().toLowerCase();
+        const typeMap = {
+            'pdf': 'pdf',
+            'doc': 'doc', 'docx': 'doc',
+            'txt': 'txt',
+            'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image',
+            'xlsx': 'xlsx', 'xls': 'xlsx',
+            'pptx': 'pptx', 'ppt': 'pptx'
+        };
+        return typeMap[extension] || 'txt';
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    renderFiles() {
+        const filesGrid = document.getElementById('filesGrid');
+        if (!filesGrid) return;
+
+        const allFiles = [...this.files, ...this.secureFiles];
+
+        if (allFiles.length === 0) {
+            filesGrid.innerHTML = this.getEmptyState('No files yet', 'Upload your first document to get started');
+            return;
+        }
+
+        filesGrid.innerHTML = allFiles.map(file => this.createFileCard(file)).join('');
+    }
+
+    renderRecentFiles() {
+        const recentFilesGrid = document.getElementById('recentFilesGrid');
+        if (!recentFilesGrid) return;
+
+        const allFiles = [...this.files, ...this.secureFiles];
+        const recentFiles = allFiles
+            .sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate))
+            .slice(0, 12);
+
+        if (recentFiles.length === 0) {
+            recentFilesGrid.innerHTML = this.getEmptyState('No recent files', 'Upload some documents to see them here');
+            return;
+        }
+
+        recentFilesGrid.innerHTML = recentFiles.map(file => this.createFileCard(file)).join('');
+    }
+
+    renderSecureFiles() {
+        const secureFilesGrid = document.getElementById('secureFilesGrid');
+        if (!secureFilesGrid) return;
+
+        if (this.secureFiles.length === 0) {
+            secureFilesGrid.innerHTML = this.getEmptyState('No secure files', 'Upload encrypted documents to see them here');
+            return;
+        }
+
+        secureFilesGrid.innerHTML = this.secureFiles.map(file => this.createFileCard(file)).join('');
+    }
+
+    createFileCard(file) {
+        const uploadDate = new Date(file.uploadDate).toLocaleDateString();
+        const fileIcon = this.getFileIcon(file.type);
+        const securityBadge = file.encrypted ? '<span class="security-badge">🔒 Encrypted</span>' : '';
+
+        return `
+            <div class="file-card" onclick="filingSystem.openFile('${file.id}')">
+                <div class="file-header">
+                    <div class="file-icon ${file.type}">
+                        ${fileIcon}
+                    </div>
+                    <div class="file-actions">
+                        <button onclick="event.stopPropagation(); filingSystem.downloadFile('${file.id}')" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button onclick="event.stopPropagation(); filingSystem.deleteFile('${file.id}')" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="file-info">
+                    <h4>${file.name}</h4>
+                    <p>${file.size} • ${uploadDate}</p>
+                    ${securityBadge}
+                </div>
+            </div>
+        `;
+    }
+
+    getFileIcon(type) {
+        const icons = {
+            'pdf': '<i class="fas fa-file-pdf"></i>',
+            'doc': '<i class="fas fa-file-word"></i>',
+            'image': '<i class="fas fa-file-image"></i>',
+            'txt': '<i class="fas fa-file-alt"></i>',
+            'xlsx': '<i class="fas fa-file-excel"></i>',
+            'pptx': '<i class="fas fa-file-powerpoint"></i>'
+        };
+        return icons[type] || '<i class="fas fa-file"></i>';
+    }
+
+    getEmptyState(title, description) {
+        return `
+            <div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--text-muted);">
+                <i class="fas fa-folder-open" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                <h3 style="margin-bottom: 0.5rem; color: var(--text-secondary);">${title}</h3>
+                <p>${description}</p>
+            </div>
+        `;
+    }
+
+    openFile(fileId) {
+        const file = this.findFile(fileId);
+        if (!file) return;
+
+        if (file.encrypted) {
+            this.showSecurityModal(file);
+        } else {
+            this.showFileDetails(file);
+        }
+    }
+
+    findFile(fileId) {
+        return [...this.files, ...this.secureFiles].find(f => f.id === fileId);
+    }
+
+    showSecurityModal(file) {
+        const modal = document.getElementById('securityModal');
+        if (modal) {
+            modal.classList.add('active');
+            modal.dataset.fileId = file.id;
+        }
+    }
+
+    showFileDetails(file) {
+        const modal = document.getElementById('fileModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+
+        if (modalTitle) modalTitle.textContent = file.name;
+        if (modalBody) {
+            modalBody.innerHTML = `
+                <div class="file-details">
+                    <p><strong>File Name:</strong> ${file.name}</p>
+                    <p><strong>File Size:</strong> ${file.size}</p>
+                    <p><strong>File Type:</strong> ${file.type.toUpperCase()}</p>
+                    <p><strong>Upload Date:</strong> ${new Date(file.uploadDate).toLocaleString()}</p>
+                    <p><strong>Security:</strong> ${file.encrypted ? '🔒 Encrypted' : '🔓 Standard'}</p>
+                    ${file.encrypted && file.password ? `
+                        <p><strong>Password:</strong> <code style="background: var(--bg-secondary); padding: 0.25rem 0.5rem; border-radius: 4px;">${file.password}</code></p>
+                        <small style="color: var(--text-muted); font-style: italic;">This is the password you set when uploading the file</small>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        if (modal) modal.classList.add('active');
+    }
+
+    downloadFile(fileId) {
+        const file = this.findFile(fileId);
+        if (!file) return;
+
+        if (file.encrypted) {
+            this.showSecurityModal(file);
+        } else {
+            this.addNotification(`Downloading ${file.name}...`, 'info');
+            this.addActivity('download', `Downloaded "${file.name}"`);
+        }
+    }
+
+    deleteFile(fileId) {
+        if (!confirm('Are you sure you want to delete this file?')) return;
+
+        const file = this.findFile(fileId);
+        if (!file) return;
+
+        this.files = this.files.filter(f => f.id !== fileId);
+        this.secureFiles = this.secureFiles.filter(f => f.id !== fileId);
+
+        localStorage.setItem('modernFilingFiles', JSON.stringify(this.files));
+        localStorage.setItem('modernSecureFiles', JSON.stringify(this.secureFiles));
+
+        this.updateStats();
+        this.updateStorageInfo();
+        this.renderCurrentPage();
+        this.addNotification(`File "${file.name}" deleted successfully`, 'success');
+        this.addActivity('delete', `Deleted "${file.name}"`);
+    }
+
+    closeModals() {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.remove('active');
+        });
+    }
+
+    // Backup functionality
+    exportData() {
+        const data = {
+            files: this.files,
+            secureFiles: this.secureFiles,
+            settings: this.settings,
+            exportDate: new Date().toISOString(),
+            version: '2.0.0'
+        };
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `st-clare-filing-backup-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        this.addNotification('Data exported successfully', 'success');
+        this.addActivity('backup', 'Created system backup');
+    }
+
+    importData(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+
+                if (!confirm(`Import backup from ${new Date(data.exportDate).toLocaleString()}? This will replace all current data.`)) {
+                    return;
+                }
+
+                this.files = data.files || [];
+                this.secureFiles = data.secureFiles || [];
+                this.settings = { ...this.settings, ...(data.settings || {}) };
+
+                localStorage.setItem('modernFilingFiles', JSON.stringify(this.files));
+                localStorage.setItem('modernSecureFiles', JSON.stringify(this.secureFiles));
+                localStorage.setItem('modernFilingSettings', JSON.stringify(this.settings));
+
+                this.updateStats();
+                this.updateStorageInfo();
+                this.renderCurrentPage();
+                this.addNotification('Data imported successfully', 'success');
+                this.addActivity('restore', 'Restored from backup');
+            } catch (error) {
+                this.addNotification('Invalid backup file', 'error');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // Notification system
+    addNotification(message, type = 'info') {
+        const notification = {
+            id: this.generateId(),
+            message,
+            type,
+            timestamp: new Date().toISOString()
+        };
+
+        this.notifications.unshift(notification);
+
+        // Keep only last 10 notifications
+        if (this.notifications.length > 10) {
+            this.notifications = this.notifications.slice(0, 10);
+        }
+
+        this.updateStats();
+        this.showToast(message, type);
+    }
+
+    showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            <div class="toast-content">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <span>${message}</span>
+            </div>
+        `;
+
+        toast.style.cssText = `
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-left: 4px solid ${type === 'success' ? 'var(--accent-success)' : type === 'error' ? 'var(--accent-danger)' : 'var(--accent-info)'};
+            color: var(--text-primary);
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            z-index: 1001;
+            animation: slideInRight 0.3s ease;
+            max-width: 400px;
+        `;
+
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    }
+
+    // Activity tracking
+    addActivity(type, description) {
+        const activity = {
+            id: this.generateId(),
+            type,
+            description,
+            timestamp: new Date().toISOString()
+        };
+
+        const activities = JSON.parse(localStorage.getItem('modernFilingActivities')) || [];
+        activities.unshift(activity);
+
+        // Keep only last 50 activities
+        if (activities.length > 50) {
+            activities.splice(50);
+        }
+
+        localStorage.setItem('modernFilingActivities', JSON.stringify(activities));
+
+        if (this.currentPage === 'dashboard') {
+            this.renderRecentActivity();
+        }
+    }
+
+    renderRecentActivity() {
+        const activityList = document.getElementById('recentActivity');
+        if (!activityList) return;
+
+        const activities = JSON.parse(localStorage.getItem('modernFilingActivities')) || [];
+        const recentActivities = activities.slice(0, 5);
+
+        if (recentActivities.length === 0) {
+            activityList.innerHTML = `
+                <div class="activity-item">
+                    <div class="activity-content">
+                        <div class="activity-title">No recent activity</div>
+                        <div class="activity-description">Start uploading files to see activity here</div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        activityList.innerHTML = recentActivities.map(activity => `
+            <div class="activity-item">
+                <div class="activity-icon" style="background: ${this.getActivityColor(activity.type)}">
+                    <i class="fas fa-${this.getActivityIcon(activity.type)}"></i>
+                </div>
+                <div class="activity-content">
+                    <div class="activity-title">${activity.description}</div>
+                    <div class="activity-time">${this.formatRelativeTime(activity.timestamp)}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    getActivityColor(type) {
+        const colors = {
+            'upload': 'var(--accent-primary)',
+            'download': 'var(--accent-success)',
+            'delete': 'var(--accent-danger)',
+            'backup': 'var(--accent-warning)',
+            'restore': 'var(--accent-info)'
+        };
+        return colors[type] || 'var(--accent-primary)';
+    }
+
+    getActivityIcon(type) {
+        const icons = {
+            'upload': 'upload',
+            'download': 'download',
+            'delete': 'trash',
+            'backup': 'database',
+            'restore': 'history'
+        };
+        return icons[type] || 'file';
+    }
+
+    formatRelativeTime(timestamp) {
+        const now = new Date();
+        const time = new Date(timestamp);
+        const diffInMinutes = Math.floor((now - time) / (1000 * 60));
+
+        if (diffInMinutes < 1) return 'Just now';
+        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+        if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+        return `${Math.floor(diffInMinutes / 1440)}d ago`;
+    }
+
+    generateSampleActivity() {
+        if (localStorage.getItem('modernFilingActivities')) return;
+
+        const sampleActivities = [
+            { type: 'upload', description: 'Uploaded student_records.pdf' },
+            { type: 'backup', description: 'System backup completed' },
+            { type: 'download', description: 'Downloaded enrollment_form.docx' }
+        ];
+
+        sampleActivities.forEach((activity, index) => {
+            setTimeout(() => {
+                this.addActivity(activity.type, activity.description);
+            }, index * 1000);
+        });
+    }
+
+    // Theme management
+    loadTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+
+        const themeToggle = document.getElementById('themeToggle');
+        if (themeToggle) {
+            const icon = themeToggle.querySelector('i');
+            if (icon) {
+                icon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+    }
+
+    // Security functionality
+    showSecurityScan() {
+        const secureCount = this.secureFiles.length;
+        const totalCount = this.files.length + this.secureFiles.length;
+        const securityPercentage = totalCount > 0 ? Math.round((secureCount / totalCount) * 100) : 0;
+
+        this.addNotification(`Security scan complete: ${securityPercentage}% of files are encrypted`, 'info');
+    }
+
+    // Additional utility methods
+    applyFilters() {
+        // Implement filtering logic based on current page
+        this.renderCurrentPage();
+    }
+
+    switchView(view) {
+        this.currentView = view;
+        document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`[data-view="${view}"]`).classList.add('active');
+        // Implement view switching logic
+    }
+
+    handleGlobalSearch(query) {
+        const searchSuggestions = document.getElementById('searchSuggestions');
+        if (!searchSuggestions) return;
+
+        if (!query.trim()) {
+            searchSuggestions.classList.remove('active');
+            searchSuggestions.innerHTML = '';
+            return;
+        }
+
+        const allFiles = [...this.files, ...this.secureFiles];
+        const results = allFiles.filter(file =>
+            file.name.toLowerCase().includes(query.toLowerCase()) ||
+            file.type.toLowerCase().includes(query.toLowerCase())
+        );
+
+        if (results.length === 0) {
+            searchSuggestions.innerHTML = `
+                <div class="search-result-item">
+                    <div class="search-result-content">
+                        <div class="search-result-title">No results found</div>
+                        <div class="search-result-meta">Try a different search term</div>
+                    </div>
+                </div>
+            `;
+            searchSuggestions.classList.add('active');
+            return;
+        }
+
+        searchSuggestions.innerHTML = results.slice(0, 5).map(file => {
+            const highlightedName = file.name.replace(
+                new RegExp(query, 'gi'),
+                match => `<span class="search-highlight">${match}</span>`
+            );
+
+            return `
+                <div class="search-result-item" onclick="filingSystem.openFile('${file.id}')">
+                    <div class="search-result-icon" style="background: ${this.getFileIconColor(file.type)}">
+                        ${this.getFileIcon(file.type)}
+                    </div>
+                    <div class="search-result-content">
+                        <div class="search-result-title">${highlightedName}</div>
+                        <div class="search-result-meta">${file.size} • ${new Date(file.uploadDate).toLocaleDateString()}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        searchSuggestions.classList.add('active');
+    }
+
+    getFileIconColor(type) {
+        const colors = {
+            'pdf': '#ef4444',
+            'doc': '#3b82f6',
+            'xlsx': '#10b981',
+            'pptx': '#f59e0b',
+            'image': '#8b5cf6',
+            'txt': '#6b7280'
+        };
+        return colors[type] || '#6b7280';
+    }
+
+    renderUploadPage() {
+        // Upload page is already rendered in HTML
+    }
+
+    renderBackupPage() {
+        // Backup page is already rendered in HTML
+        // Set up import listener
+        const importInput = document.getElementById('importInput');
+        if (importInput && !importInput.dataset.listenerAdded) {
+            importInput.addEventListener('change', (e) => {
+                this.importData(e.target.files[0]);
+            });
+            importInput.dataset.listenerAdded = 'true';
+        }
+    }
+
+    exportData() {
+        const backupData = {
+            version: '2.0',
+            exportDate: new Date().toISOString(),
+            files: this.files,
+            secureFiles: this.secureFiles,
+            settings: this.settings,
+            activities: JSON.parse(localStorage.getItem('modernFilingActivities')) || []
+        };
+
+        const dataStr = JSON.stringify(backupData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `stclare-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        this.addNotification('Backup exported successfully', 'success');
+        this.addActivity('backup', 'Created system backup');
+    }
+
+    importData(file) {
+        if (!file) {
+            this.addNotification('No file selected', 'error');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const backupData = JSON.parse(e.target.result);
+
+                // Validate backup data
+                if (!backupData.version || !backupData.files) {
+                    throw new Error('Invalid backup file format');
+                }
+
+                // Show confirmation dialog
+                if (!confirm(`This will restore data from ${new Date(backupData.exportDate).toLocaleDateString()}. Continue?`)) {
+                    return;
+                }
+
+                // Restore data
+                this.files = backupData.files || [];
+                this.secureFiles = backupData.secureFiles || [];
+                this.settings = backupData.settings || this.getDefaultSettings();
+
+                // Save to localStorage
+                localStorage.setItem('modernFilingFiles', JSON.stringify(this.files));
+                localStorage.setItem('modernSecureFiles', JSON.stringify(this.secureFiles));
+                localStorage.setItem('modernFilingSettings', JSON.stringify(this.settings));
+
+                if (backupData.activities) {
+                    localStorage.setItem('modernFilingActivities', JSON.stringify(backupData.activities));
+                }
+
+                // Update UI
+                this.updateStats();
+                this.updateStorageInfo();
+                this.renderCurrentPage();
+
+                this.addNotification('Backup restored successfully', 'success');
+                this.addActivity('restore', 'Restored from backup');
+
+                // Clear file input
+                const importInput = document.getElementById('importInput');
+                if (importInput) importInput.value = '';
+
+            } catch (error) {
+                console.error('Import error:', error);
+                this.addNotification('Failed to import backup: ' + error.message, 'error');
+            }
+        };
+
+        reader.onerror = () => {
+            this.addNotification('Failed to read backup file', 'error');
+        };
+
+        reader.readAsText(file);
+    }
+
+    renderAnalytics() {
+        const analyticsContainer = document.querySelector('.analytics-container');
+        if (!analyticsContainer) return;
+
+        const allFiles = [...this.files, ...this.secureFiles];
+        const fileTypeStats = this.getFileTypeStatistics();
+        const uploadStats = this.getUploadStatistics();
+        const storageStats = this.getStorageStatistics();
+        const auditLogs = this.getAuditLogs();
+        const reportDate = new Date().toLocaleString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        analyticsContainer.innerHTML = `
+            <!-- Print Header -->
+            <div class="print-header">
+                <h1>St. Clare College Document Management System</h1>
+                <p>Analytics Report - ${reportDate}</p>
+            </div>
+
+            <!-- Analytics Actions -->
+            <div class="analytics-actions no-print">
+                <button onclick="filingSystem.printAnalytics()">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+                <button onclick="filingSystem.exportAnalyticsCSV()">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
+                <button onclick="filingSystem.exportAnalyticsPDF()">
+                    <i class="fas fa-file-pdf"></i> Export PDF
+                </button>
+            </div>
+
+            <div class="analytics-grid">
+                <!-- Storage Overview -->
+                <div class="analytics-card">
+                    <div class="analytics-card-header">
+                        <h3><i class="fas fa-database"></i> Storage Overview</h3>
+                    </div>
+                    <div class="storage-ring">
+                        <svg width="150" height="150">
+                            <defs>
+                                <linearGradient id="storageGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="var(--accent-primary)" />
+                                    <stop offset="100%" stop-color="var(--accent-secondary)" />
+                                </linearGradient>
+                            </defs>
+                            <circle class="storage-ring-bg" cx="75" cy="75" r="65" />
+                            <circle class="storage-ring-progress" cx="75" cy="75" r="65"
+                                    stroke-dasharray="${2 * Math.PI * 65}"
+                                    stroke-dashoffset="${2 * Math.PI * 65 * (1 - storageStats.percentage / 100)}" />
+                        </svg>
+                        <div class="storage-ring-text">
+                            <span class="storage-ring-percentage">${storageStats.percentage}%</span>
+                            <span class="storage-ring-label">Used</span>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-top: 1rem;">
+                        <p style="color: var(--text-secondary); font-size: 0.875rem;">
+                            ${storageStats.used} of ${storageStats.total} used
+                        </p>
+                    </div>
+                </div>
+
+                <!-- File Type Distribution -->
+                <div class="analytics-card">
+                    <div class="analytics-card-header">
+                        <h3><i class="fas fa-chart-pie"></i> File Types</h3>
+                    </div>
+                    <div style="padding: 1rem 0;">
+                        ${Object.entries(fileTypeStats).map(([type, count]) => `
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <div style="width: 40px; height: 40px; border-radius: var(--radius-sm); background: ${this.getFileIconColor(type)}; display: flex; align-items: center; justify-content: center; color: white;">
+                                        ${this.getFileIcon(type)}
+                                    </div>
+                                    <span style="font-weight: 600; color: var(--text-primary); text-transform: uppercase;">${type}</span>
+                                </div>
+                                <span style="font-size: 1.25rem; font-weight: 700; color: var(--accent-primary);">${count}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Upload Activity -->
+                <div class="analytics-card" style="grid-column: span 2;">
+                    <div class="analytics-card-header">
+                        <h3><i class="fas fa-chart-line"></i> Upload Activity (Last 7 Days)</h3>
+                    </div>
+                    <div class="chart-container">
+                        ${uploadStats.map(stat => `
+                            <div class="chart-bar" style="height: ${Math.max(stat.count * 30, 20)}px;" title="${stat.day}: ${stat.count} uploads">
+                                <div class="chart-bar-value">${stat.count}</div>
+                                <div class="chart-bar-label">${stat.day}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="analytics-card">
+                    <div class="analytics-card-header">
+                        <h3><i class="fas fa-info-circle"></i> Quick Stats</h3>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div style="padding: 1rem; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                            <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">Total Files</div>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-primary);">${allFiles.length}</div>
+                        </div>
+                        <div style="padding: 1rem; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                            <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">Encrypted Files</div>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-success);">${this.secureFiles.length}</div>
+                        </div>
+                        <div style="padding: 1rem; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                            <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">Security Score</div>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-warning);">${this.calculateSecurityScore()}%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Uploads -->
+                <div class="analytics-card">
+                    <div class="analytics-card-header">
+                        <h3><i class="fas fa-clock"></i> Recent Uploads</h3>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        ${allFiles.slice(0, 5).map(file => `
+                            <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--bg-tertiary); border-radius: var(--radius-sm); cursor: pointer;" onclick="filingSystem.openFile('${file.id}')">
+                                <div style="width: 35px; height: 35px; border-radius: var(--radius-sm); background: ${this.getFileIconColor(file.type)}; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0;">
+                                    ${this.getFileIcon(file.type)}
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.name}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted);">${file.size} • ${this.formatRelativeTime(file.uploadDate)}</div>
+                                </div>
+                            </div>
+                        `).join('') || '<p style="color: var(--text-muted); text-align: center;">No recent uploads</p>'}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audit Log Section -->
+            <div class="audit-log-section">
+                <div class="audit-log-header">
+                    <h2><i class="fas fa-clipboard-list"></i> Audit Log</h2>
+                    <p>Complete system activity log with timestamps</p>
+                </div>
+
+                <div class="audit-log-filters no-print">
+                    <select id="auditTypeFilter" onchange="filingSystem.filterAuditLog(this.value)">
+                        <option value="all">All Activities</option>
+                        <option value="upload">Uploads</option>
+                        <option value="download">Downloads</option>
+                        <option value="delete">Deletions</option>
+                        <option value="backup">Backups</option>
+                        <option value="restore">Restores</option>
+                    </select>
+                    <select id="auditDateFilter" onchange="filingSystem.filterAuditByDate(this.value)">
+                        <option value="all">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                    </select>
+                </div>
+
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Timestamp</th>
+                            <th>Action</th>
+                            <th>Description</th>
+                            <th>User</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditLogBody">
+                        ${auditLogs.map((log, index) => `
+                            <tr class="audit-log-row">
+                                <td>${index + 1}</td>
+                                <td class="audit-timestamp">${this.formatAuditTimestamp(log.timestamp)}</td>
+                                <td><span class="audit-badge audit-badge-${log.type}">${this.getAuditActionLabel(log.type)}</span></td>
+                                <td>${log.description}</td>
+                                <td>${log.user || 'Registrar Office'}</td>
+                                <td><span class="audit-status audit-status-success">Success</span></td>
+                            </tr>
+                        `).join('') || '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">No audit logs available</td></tr>'}
+                    </tbody>
+                </table>
+
+                <div class="audit-summary">
+                    <div class="summary-item">
+                        <strong>Total Activities</strong>
+                        <span>${auditLogs.length}</span>
+                    </div>
+                    <div class="summary-item">
+                        <strong>Date Range</strong>
+                        <span>${this.getAuditDateRange(auditLogs)}</span>
+                    </div>
+                    <div class="summary-item">
+                        <strong>Most Active Action</strong>
+                        <span>${this.getMostActiveAction(auditLogs)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Print Footer -->
+            <div class="print-footer">
+                <p>St. Clare College Document Management System • Confidential</p>
+                <p>Page 1 of 1</p>
+            </div>
+        `;
+    }
+
+    getFileTypeStatistics() {
+        const allFiles = [...this.files, ...this.secureFiles];
+        const stats = {};
+
+        allFiles.forEach(file => {
+            stats[file.type] = (stats[file.type] || 0) + 1;
+        });
+
+        return stats;
+    }
+
+    getUploadStatistics() {
+        const allFiles = [...this.files, ...this.secureFiles];
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const today = new Date();
+        const stats = [];
+
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const dayName = days[date.getDay()];
+
+            const count = allFiles.filter(file => {
+                const fileDate = new Date(file.uploadDate);
+                return fileDate.toDateString() === date.toDateString();
+            }).length;
+
+            stats.push({ day: dayName, count });
+        }
+
+        return stats;
+    }
+
+    getStorageStatistics() {
+        const totalSize = this.getTotalStorageSize();
+        const maxSize = 100 * 1024 * 1024; // 100MB
+        const percentage = Math.round((totalSize / maxSize) * 100);
+
+        return {
+            used: this.formatFileSize(totalSize),
+            total: this.formatFileSize(maxSize),
+            percentage: Math.min(percentage, 100)
+        };
+    }
+
+    calculateSecurityScore() {
+        const totalFiles = this.files.length + this.secureFiles.length;
+        if (totalFiles === 0) return 100;
+
+        const encryptedFiles = this.secureFiles.length;
+        return Math.round((encryptedFiles / totalFiles) * 100);
+    }
+
+    // Audit Log Methods
+    getAuditLogs() {
+        const activities = JSON.parse(localStorage.getItem('modernFilingActivities')) || [];
+        return activities.map(activity => ({
+            ...activity,
+            user: 'Registrar Office',
+            status: 'success'
+        }));
+    }
+
+    formatAuditTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+    }
+
+    getAuditActionLabel(type) {
+        const labels = {
+            'upload': 'Upload',
+            'download': 'Download',
+            'delete': 'Delete',
+            'backup': 'Backup',
+            'restore': 'Restore',
+            'access': 'Access'
+        };
+        return labels[type] || type.toUpperCase();
+    }
+
+    getAuditDateRange(logs) {
+        if (logs.length === 0) return 'No data';
+        const dates = logs.map(log => new Date(log.timestamp)).sort((a, b) => a - b);
+        const oldest = dates[0].toLocaleDateString();
+        const newest = dates[dates.length - 1].toLocaleDateString();
+        return `${oldest} - ${newest}`;
+    }
+
+    getMostActiveAction(logs) {
+        if (logs.length === 0) return 'None';
+        const counts = {};
+        logs.forEach(log => {
+            counts[log.type] = (counts[log.type] || 0) + 1;
+        });
+        const mostActive = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+        return `${this.getAuditActionLabel(mostActive[0])} (${mostActive[1]})`;
+    }
+
+    filterAuditLog(type) {
+        const activities = JSON.parse(localStorage.getItem('modernFilingActivities')) || [];
+        const filtered = type === 'all' ? activities : activities.filter(a => a.type === type);
+        this.renderAuditTable(filtered);
+    }
+
+    filterAuditByDate(range) {
+        const activities = JSON.parse(localStorage.getItem('modernFilingActivities')) || [];
+        const now = new Date();
+        let filtered = activities;
+
+        if (range === 'today') {
+            filtered = activities.filter(a => {
+                const actDate = new Date(a.timestamp);
+                return actDate.toDateString() === now.toDateString();
+            });
+        } else if (range === 'week') {
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            filtered = activities.filter(a => new Date(a.timestamp) >= weekAgo);
+        } else if (range === 'month') {
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            filtered = activities.filter(a => new Date(a.timestamp) >= monthAgo);
+        }
+
+        this.renderAuditTable(filtered);
+    }
+
+    renderAuditTable(logs) {
+        const tbody = document.getElementById('auditLogBody');
+        if (!tbody) return;
+
+        tbody.innerHTML = logs.map((log, index) => `
+            <tr class="audit-log-row">
+                <td>${index + 1}</td>
+                <td class="audit-timestamp">${this.formatAuditTimestamp(log.timestamp)}</td>
+                <td><span class="audit-badge audit-badge-${log.type}">${this.getAuditActionLabel(log.type)}</span></td>
+                <td>${log.description}</td>
+                <td>${log.user || 'Registrar Office'}</td>
+                <td><span class="audit-status audit-status-success">Success</span></td>
+            </tr>
+        `).join('') || '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">No audit logs match the filter</td></tr>';
+    }
+
+    printAnalytics() {
+        window.print();
+    }
+
+    exportAnalyticsCSV() {
+        const activities = JSON.parse(localStorage.getItem('modernFilingActivities')) || [];
+        let csv = 'Timestamp,Action,Description,User,Status\n';
+
+        activities.forEach(log => {
+            const timestamp = this.formatAuditTimestamp(log.timestamp);
+            const action = this.getAuditActionLabel(log.type);
+            const description = log.description.replace(/,/g, ';');
+            csv += `"${timestamp}","${action}","${description}","Registrar Office","Success"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        this.addNotification('Audit log exported to CSV', 'success');
+    }
+
+    exportAnalyticsPDF() {
+        // Simple PDF export using print to PDF
+        this.addNotification('Use Print > Save as PDF in the print dialog', 'info');
+        setTimeout(() => window.print(), 500);
+    }
+
+    renderSettings() {
+        // Settings page is already rendered in HTML
+        const autoSaveSetting = document.getElementById('autoSaveSetting');
+        const notificationsSetting = document.getElementById('notificationsSetting');
+
+        if (autoSaveSetting) autoSaveSetting.checked = this.settings.autoSave;
+        if (notificationsSetting) notificationsSetting.checked = this.settings.notifications;
+    }
+
+    // File Preview Modal
+    showFileDetails(file) {
+        let modal = document.getElementById('filePreviewModal');
+
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'filePreviewModal';
+            modal.className = 'file-preview-modal';
+            document.body.appendChild(modal);
+        }
+
+        const uploadDate = new Date(file.uploadDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        modal.innerHTML = `
+            <div class="file-preview-content">
+                <div class="file-preview-header">
+                    <div class="file-preview-title">
+                        <div class="file-preview-icon" style="background: ${this.getFileIconColor(file.type)}">
+                            ${this.getFileIcon(file.type)}
+                        </div>
+                        <div class="file-preview-info">
+                            <h3>${file.name}</h3>
+                            <p>${file.size} • ${file.type.toUpperCase()}</p>
+                        </div>
+                    </div>
+                    <button class="btn-icon-only" onclick="filingSystem.closeFilePreview()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="file-preview-body">
+                    <div class="file-preview-details">
+                        <div class="file-preview-detail">
+                            <span class="file-preview-detail-label">File Name</span>
+                            <span class="file-preview-detail-value">${file.name}</span>
+                        </div>
+                        <div class="file-preview-detail">
+                            <span class="file-preview-detail-label">File Size</span>
+                            <span class="file-preview-detail-value">${file.size}</span>
+                        </div>
+                        <div class="file-preview-detail">
+                            <span class="file-preview-detail-label">File Type</span>
+                            <span class="file-preview-detail-value">${file.type.toUpperCase()}</span>
+                        </div>
+                        <div class="file-preview-detail">
+                            <span class="file-preview-detail-label">Upload Date</span>
+                            <span class="file-preview-detail-value">${uploadDate}</span>
+                        </div>
+                        <div class="file-preview-detail">
+                            <span class="file-preview-detail-label">Security</span>
+                            <span class="file-preview-detail-value">${file.encrypted ? '🔒 Encrypted' : '🔓 Not Encrypted'}</span>
+                        </div>
+                        <div class="file-preview-detail">
+                            <span class="file-preview-detail-label">File ID</span>
+                            <span class="file-preview-detail-value">${file.id}</span>
+                        </div>
+                    </div>
+                    ${file.encrypted ? `
+                        <div style="padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: var(--radius-md); border-left: 3px solid var(--accent-primary);">
+                            <p style="color: var(--text-primary); margin: 0;">
+                                <i class="fas fa-shield-alt"></i> This file is encrypted and protected with a password.
+                            </p>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="file-preview-actions">
+                    <button class="btn" onclick="filingSystem.closeFilePreview()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                    <button class="btn btn-primary" onclick="filingSystem.downloadFile('${file.id}')">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <button class="btn btn-danger" onclick="filingSystem.deleteFile('${file.id}'); filingSystem.closeFilePreview();">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        `;
+
+        modal.classList.add('active');
+
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeFilePreview();
+            }
+        });
+    }
+
+    closeFilePreview() {
+        const modal = document.getElementById('filePreviewModal');
+        if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => {
+                modal.remove();
+            }, 300);
+        }
+    }
+
+    // Notification Panel
+    toggleNotificationPanel() {
+        let panel = document.getElementById('notificationPanel');
+
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'notificationPanel';
+            panel.className = 'notification-panel';
+            document.body.appendChild(panel);
+            this.renderNotificationPanel(panel);
+        }
+
+        panel.classList.toggle('active');
+
+        // Mark all as read when opening
+        if (panel.classList.contains('active')) {
+            this.markAllNotificationsAsRead();
+        }
+    }
+
+    renderNotificationPanel(panel) {
+        const notifications = this.notifications.slice(0, 20);
+
+        panel.innerHTML = `
+            <div class="notification-panel-header">
+                <h3>Notifications</h3>
+                <div class="notification-panel-actions">
+                    <button class="btn-icon-only" onclick="filingSystem.clearAllNotifications()" title="Clear All">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="btn-icon-only" onclick="filingSystem.toggleNotificationPanel()" title="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="notification-panel-body">
+                ${notifications.length === 0 ? `
+                    <div class="notification-item">
+                        <div class="notification-item-content">
+                            <div class="notification-item-text">
+                                <div class="notification-item-title">No notifications</div>
+                                <div class="notification-item-description">You're all caught up!</div>
+                            </div>
+                        </div>
+                    </div>
+                ` : notifications.map((notif, index) => `
+                    <div class="notification-item ${index < 3 ? 'unread' : ''}">
+                        <div class="notification-item-content">
+                            <div class="notification-item-icon" style="background: ${this.getNotificationColor(notif.type)}">
+                                <i class="fas fa-${this.getNotificationIcon(notif.type)}"></i>
+                            </div>
+                            <div class="notification-item-text">
+                                <div class="notification-item-title">${notif.message}</div>
+                                <div class="notification-item-time">${this.formatRelativeTime(notif.timestamp)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    getNotificationColor(type) {
+        const colors = {
+            'success': 'var(--accent-success)',
+            'error': 'var(--accent-danger)',
+            'warning': 'var(--accent-warning)',
+            'info': 'var(--accent-info)'
+        };
+        return colors[type] || 'var(--accent-primary)';
+    }
+
+    getNotificationIcon(type) {
+        const icons = {
+            'success': 'check-circle',
+            'error': 'exclamation-circle',
+            'warning': 'exclamation-triangle',
+            'info': 'info-circle'
+        };
+        return icons[type] || 'bell';
+    }
+
+    markAllNotificationsAsRead() {
+        // Update notification badge
+        const badge = document.getElementById('notificationCount');
+        if (badge) {
+            badge.textContent = '0';
+            badge.style.display = 'none';
+        }
+    }
+
+    clearAllNotifications() {
+        this.notifications = [];
+        const panel = document.getElementById('notificationPanel');
+        if (panel) {
+            this.renderNotificationPanel(panel);
+        }
+        this.addNotification('All notifications cleared', 'success');
+    }
+
+    findFile(fileId) {
+        return [...this.files, ...this.secureFiles].find(f => f.id === fileId);
+    }
+
+    closeModals() {
+        const modals = document.querySelectorAll('.modal.active, .file-preview-modal.active');
+        modals.forEach(modal => modal.classList.remove('active'));
+    }
+}
+
+// Global functions
+window.switchPage = function(pageName) {
+    if (window.filingSystem) {
+        window.filingSystem.switchPage(pageName);
+
+        // Update active menu item
+        document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+        document.querySelector(`[data-page="${pageName}"]`)?.classList.add('active');
+    }
+};
+
+window.toggleTheme = function() {
+    const html = document.documentElement;
+    const currentTheme = html.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+    html.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+        const icon = themeToggle.querySelector('i');
+        if (icon) {
+            icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
+    }
+};
+
+window.togglePasswordInput = function() {
+    const encryptUpload = document.getElementById('encryptUpload');
+    const passwordInputGroup = document.getElementById('passwordInputGroup');
+
+    if (encryptUpload && passwordInputGroup) {
+        if (encryptUpload.checked) {
+            passwordInputGroup.style.display = 'block';
+            // Set default to custom password
+            const customRadio = document.querySelector('input[name="passwordType"][value="custom"]');
+            if (customRadio) customRadio.checked = true;
+            window.filingSystem.handlePasswordTypeChange('custom');
+        } else {
+            passwordInputGroup.style.display = 'none';
+        }
+    }
+};
+
+window.togglePasswordVisibility = function(inputId) {
+    const input = document.getElementById(inputId);
+    const button = input.nextElementSibling;
+    const icon = button.querySelector('i');
+
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fas fa-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'fas fa-eye';
+    }
+};
+
+window.copyGeneratedPassword = function() {
+    const generatedPassword = document.getElementById('generatedPassword').textContent;
+    navigator.clipboard.writeText(generatedPassword).then(() => {
+        window.filingSystem.addNotification('Password copied to clipboard!', 'success');
+    }).catch(() => {
+        window.filingSystem.addNotification('Failed to copy password', 'error');
+    });
+};
+
+window.verifyAccess = function() {
+    const modal = document.getElementById('securityModal');
+    const fileId = modal?.dataset.fileId;
+    const enteredPassword = document.getElementById('accessCode')?.value;
+
+    if (!fileId || !enteredPassword) {
+        window.filingSystem.addNotification('Please enter a password', 'error');
+        return;
+    }
+
+    const file = window.filingSystem.findFile(fileId);
+    if (file && file.password === enteredPassword) {
+        window.filingSystem.closeModals();
+        window.filingSystem.showFileDetails(file);
+        document.getElementById('accessCode').value = '';
+        window.filingSystem.addNotification('Access granted', 'success');
+        window.filingSystem.addActivity('download', `Accessed secure file "${file.name}"`);
+    } else {
+        window.filingSystem.addNotification('Incorrect password', 'error');
+        document.getElementById('accessCode').value = '';
+    }
+};
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    window.filingSystem = new ModernFilingSystem();
+
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        .toast-content {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+    `;
+    document.head.appendChild(style);
+
+    console.log('🚀 Modern Filing System v2.0 with Custom Password Support initialized successfully!');
+});
+
+
+/*
+  Enhancement IIFE appended to original script to add:
+  - rename-before-upload modal + queue processing
+  - storing file content (Base64) for non-encrypted files
+  - AES-GCM encryption/decryption for encrypted files (Web Crypto API)
+  - automatic download after successful decryption
+  - auto-generated password shown once; hint stored
+  This IIFE attaches methods to ModernFilingSystem.prototype so it overrides behavior.
+*/
+(function(){
+  if (typeof ModernFilingSystem === 'undefined') {
+    console.warn('ModernFilingSystem not found. Make sure the original script defines it before this enhancement runs.');
+  }
+
+  ModernFilingSystem.prototype.escapeHtml = function(str) {
+    return (str + '').replace(/[&<>"'`=\/]/g, function (s) {
+      return {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '/': '&#x2F;',
+        '`': '&#x60;',
+        '=': '&#x3D;'
+      }[s];
+    });
+  };
+
+  ModernFilingSystem.prototype.readFileAsArrayBuffer = async function(file) {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = (e) => reject(e);
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  ModernFilingSystem.prototype.arrayBufferToBase64 = function(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  };
+
+  ModernFilingSystem.prototype.base64ToArrayBuffer = function(base64) {
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  };
+
+  ModernFilingSystem.prototype.deriveKeyFromPassword = async function(password, salt, iterations = 250000) {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(password),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    );
+    return await crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  };
+
+  ModernFilingSystem.prototype.encryptArrayBufferWithPassword = async function(arrayBuffer, password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await this.deriveKeyFromPassword(password, salt);
+    const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, arrayBuffer);
+    return {
+      ciphertext: this.arrayBufferToBase64(cipher),
+      iv: this.arrayBufferToBase64(iv.buffer),
+      salt: this.arrayBufferToBase64(salt.buffer)
+    };
+  };
+
+  ModernFilingSystem.prototype.decryptArrayBufferWithPassword = async function(cipherBase64, ivBase64, saltBase64, password) {
+    try {
+      const cipherBuf = this.base64ToArrayBuffer(cipherBase64);
+      const ivBuf = this.base64ToArrayBuffer(ivBase64);
+      const saltBuf = this.base64ToArrayBuffer(saltBase64);
+      const key = await this.deriveKeyFromPassword(password, new Uint8Array(saltBuf));
+      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(ivBuf) }, key, cipherBuf);
+      return plain; // ArrayBuffer
+    } catch (e) {
+      throw e;
+    }
+  };
+
+  ModernFilingSystem.prototype.handleFileUpload = function(files) {
+    if (!files || files.length === 0) return;
+    const fileItems = Array.from(files).map((file) => ({
+      file,
+      id: this.generateId ? this.generateId() : (Date.now().toString(36) + Math.random().toString(36).substr(2)),
+      originalName: file.name,
+      newName: file.name,
+      shouldEncrypt: false,
+      passwordType: 'custom',
+      customPassword: '',
+      generatedPassword: this.generateSecurePassword ? this.generateSecurePassword() : (Math.random().toString(36).slice(2,14))
+    }));
+
+    this.showRenameUploadModal(fileItems);
+  };
+
+  ModernFilingSystem.prototype.processUploadQueue = async function(items) {
+    this.showUploadProgress(items.length);
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      try {
+        const ab = await this.readFileAsArrayBuffer(item.file);
+        let storedContent = null;
+        let encryptedMeta = null;
+
+        if (item.shouldEncrypt) {
+          const pw = item.customPassword || item.generatedPassword;
+          const encResult = await this.encryptArrayBufferWithPassword(ab, pw);
+          storedContent = encResult.ciphertext;
+          encryptedMeta = {
+            iv: encResult.iv,
+            salt: encResult.salt,
+            method: 'AES-GCM-PBKDF2'
+          };
+          const hint = (pw && pw.length > 4) ? (pw.slice(0,2) + '…' + pw.slice(-2)) : (pw || null);
+          var storedGeneratedPasswordHint = item.passwordType === 'auto' ? hint : null;
+        } else {
+          const blob = new Blob([ab], { type: item.file.type || 'application/octet-stream' });
+          storedContent = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(blob);
+          });
+        }
+
+        const fileData = {
+          id: item.id,
+          name: item.newName || item.originalName,
+          originalName: item.originalName,
+          size: this.formatFileSize ? this.formatFileSize(item.file.size) : (item.file.size + ' bytes'),
+          rawSize: item.file.size,
+          type: this.getFileType ? this.getFileType(item.newName || item.originalName) : 'txt',
+          uploadDate: new Date().toISOString(),
+          encrypted: !!item.shouldEncrypt,
+          content: storedContent,
+          encryptedMeta: encryptedMeta || null,
+          storedGeneratedPasswordHint: storedGeneratedPasswordHint || null
+        };
+
+        if (item.shouldEncrypt) {
+          this.secureFiles = this.secureFiles || [];
+          this.secureFiles.push(fileData);
+          localStorage.setItem('modernSecureFiles', JSON.stringify(this.secureFiles));
+        } else {
+          this.files = this.files || [];
+          this.files.push(fileData);
+          localStorage.setItem('modernFilingFiles', JSON.stringify(this.files));
+        }
+
+        this.updateUploadProgress ? this.updateUploadProgress(i+1, items.length) : null;
+        this.addNotification ? this.addNotification(`Uploaded \"${fileData.name}\"${fileData.encrypted ? ' (encrypted)' : ''}`, 'success') : console.log('Uploaded', fileData.name);
+        this.addActivity ? this.addActivity('upload', `Uploaded ${fileData.name}`) : null;
+      } catch (err) {
+        this.addNotification ? this.addNotification(`Failed to process \"${item.originalName}\": ${err.message || err}`, 'error') : console.error(err);
+      }
+    }
+
+    setTimeout(() => {
+      this.hideUploadProgress ? this.hideUploadProgress() : null;
+      this.updateStats ? this.updateStats() : null;
+      this.updateStorageInfo ? this.updateStorageInfo() : null;
+      this.renderCurrentPage ? this.renderCurrentPage() : null;
+      this.resetUploadForm ? this.resetUploadForm() : null;
+    }, 600);
+  };
+
+  ModernFilingSystem.prototype.showRenameUploadModal = function(items) {
+    const existing = document.getElementById('uploadRenameModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'uploadRenameModal';
+    modal.className = 'modal active';
+    modal.style.zIndex = 2000;
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width:900px; margin: 6rem auto; padding: 1.25rem;">
+          <h3 style="margin-top:0">Upload — Rename & Options</h3>
+          <p style="color:var(--text-muted)">Edit file names and choose encryption options before uploading.</p>
+          <div id="uploadRenameList" style="max-height: 50vh; overflow:auto; margin: 1rem 0;"></div>
+          <div style="display:flex; gap: .5rem; justify-content:flex-end; margin-top:1rem;">
+              <button id="cancelUploadBtn" class="btn">Cancel</button>
+              <button id="confirmUploadBtn" class="btn btn-primary">Upload ${items.length} file(s)</button>
+          </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    if (!document.getElementById('uploadRenameModalStyle')) {
+      const style = document.createElement('style');
+      style.id = 'uploadRenameModalStyle';
+      style.textContent = `
+        #uploadRenameList .upload-item { display:flex; gap:0.5rem; align-items:center; padding:0.5rem; border-bottom:1px solid var(--border-primary); }
+        #uploadRenameList .upload-item input[type="text"]{ flex:1; padding:0.5rem; border-radius:4px; border:1px solid var(--border-primary); background:var(--bg-card); color:var(--text-primary); }
+        #uploadRenameList .upload-item .small { font-size:0.9rem; color:var(--text-muted); }
+        #uploadRenameList .upload-item label{ font-size:0.85rem; margin-right:0.25rem;}
+        .btn { padding: 0.5rem 0.75rem; border-radius:6px; border:1px solid var(--border-primary); background:var(--bg-card); cursor:pointer; }
+        .btn-primary { background: var(--accent-primary); color: white; border-color: transparent; }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const list = modal.querySelector('#uploadRenameList');
+    items.forEach((it, idx) => {
+      const row = document.createElement('div');
+      row.className = 'upload-item';
+      row.dataset.index = idx;
+      row.innerHTML = `
+        <div style="width:56px; text-align:center;">
+            <div style="font-size:1.5rem; opacity:0.9;">📄</div>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column;">
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+                <input data-field="newName" type="text" value="${this.escapeHtml(it.newName)}" />
+                <span class="small">${this.formatFileSize ? this.formatFileSize(it.file.size) : (it.file.size+' bytes')}</span>
+            </div>
+            <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.5rem;">
+                <label><input type="checkbox" data-field="shouldEncrypt" ${it.shouldEncrypt ? 'checked' : ''}/> Encrypt</label>
+                <label style="display:flex; align-items:center; gap:0.25rem;"><input name="passwordType-${idx}" type="radio" value="custom" data-field="passwordType" ${it.passwordType==='custom' ? 'checked' : ''}/> Custom</label>
+                <label style="display:flex; align-items:center; gap:0.25rem;"><input name="passwordType-${idx}" type="radio" value="auto" data-field="passwordType" ${it.passwordType==='auto' ? 'checked' : ''}/> Auto</label>
+                <input data-field="customPassword" type="password" placeholder="custom password (min 6)" style="width:200px; padding:0.35rem; border-radius:4px; border:1px solid var(--border-primary);" />
+                <button data-action="showGen" class="btn" title="Use generated password">Gen</button>
+                <span data-field="genDisplay" class="small" style="margin-left:auto; font-family:monospace;">${this.escapeHtml(it.generatedPassword)}</span>
+            </div>
+        </div>
+      `;
+      list.appendChild(row);
+
+      const newNameInput = row.querySelector('input[data-field="newName"]');
+      const encryptCheckbox = row.querySelector('input[data-field="shouldEncrypt"]');
+      const customPwdInput = row.querySelector('input[data-field="customPassword"]');
+      const pwdTypeRadios = row.querySelectorAll(`input[name="passwordType-${idx}"]`);
+      const genBtn = row.querySelector('button[data-action="showGen"]');
+      const genDisplay = row.querySelector('span[data-field="genDisplay"]');
+
+      newNameInput.addEventListener('input', (e) => { it.newName = e.target.value; });
+      encryptCheckbox.addEventListener('change', (e) => {
+        it.shouldEncrypt = e.target.checked;
+        customPwdInput.style.display = it.shouldEncrypt ? 'inline-block' : 'none';
+        pwdTypeRadios.forEach(r => r.disabled = !it.shouldEncrypt);
+        genDisplay.style.opacity = it.shouldEncrypt ? '1' : '0.4';
+      });
+      customPwdInput.style.display = 'none';
+      customPwdInput.addEventListener('input', (e) => it.customPassword = e.target.value);
+
+      pwdTypeRadios.forEach(r => {
+        r.addEventListener('change', (e) => {
+          it.passwordType = e.target.value;
+          genDisplay.style.opacity = it.passwordType === 'auto' ? '1' : '0.6';
+        });
+        r.disabled = !it.shouldEncrypt;
+      });
+
+      genBtn.addEventListener('click', () => {
+        it.passwordType = 'auto';
+        it.generatedPassword = this.generateSecurePassword ? this.generateSecurePassword() : (Math.random().toString(36).slice(2,14));
+        genDisplay.textContent = it.generatedPassword;
+      });
+    });
+
+    modal.querySelector('#cancelUploadBtn').addEventListener('click', () => { modal.remove(); });
+
+    modal.querySelector('#confirmUploadBtn').addEventListener('click', async () => {
+      const rows = Array.from(list.children);
+      rows.forEach((row, idx) => {
+        const it = items[idx];
+        it.newName = row.querySelector('input[data-field="newName"]').value.trim() || it.originalName;
+        it.shouldEncrypt = !!row.querySelector('input[data-field="shouldEncrypt"]').checked;
+        it.passwordType = row.querySelector(`input[name="passwordType-${idx}"]:checked`) ? row.querySelector(`input[name="passwordType-${idx}"]:checked`).value : 'custom';
+        it.customPassword = row.querySelector('input[data-field="customPassword"]').value;
+        if (!it.generatedPassword) it.generatedPassword = this.generateSecurePassword ? this.generateSecurePassword() : (Math.random().toString(36).slice(2,14));
+      });
+
+      modal.remove();
+      await this.processUploadQueue(items);
+    });
+  };
+
+  ModernFilingSystem.prototype.downloadFile = async function(fileId) {
+    const file = this.findFile ? this.findFile(fileId) : null;
+    if (!file) return;
+
+    if (file.encrypted) {
+      this.showSecurityModal ? this.showSecurityModal(file) : null;
+    } else {
+      this.addNotification ? this.addNotification(`Downloading ${file.name}...`, 'info') : null;
+      if (file.content && file.content.startsWith('data:')) {
+        const a = document.createElement('a');
+        a.href = file.content;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        this.addActivity ? this.addActivity('download', `Downloaded "${file.name}"`) : null;
+      } else {
+        try {
+          if (file.content) {
+            const b64 = file.content.replace(/^data:.*;base64,/, '');
+            const ab = this.base64ToArrayBuffer(b64);
+            const blob = new Blob([ab], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            this.addActivity ? this.addActivity('download', `Downloaded "${file.name}"`) : null;
+          } else {
+            this.addNotification ? this.addNotification('No file content available', 'error') : null;
+          }
+        } catch (e) {
+          this.addNotification ? this.addNotification('Failed to prepare download', 'error') : null;
+        }
+      }
+    }
+  };
+
+  ModernFilingSystem.prototype.openFile = function(fileId) {
+    const file = this.findFile ? this.findFile(fileId) : null;
+    if (!file) return;
+    if (file.encrypted) {
+      this.showSecurityModal ? this.showSecurityModal(file) : null;
+    } else {
+      this.showFileDetails ? this.showFileDetails(file) : null;
+    }
+  };
+
+  ModernFilingSystem.prototype.showSecurityModal = function(file) {
+    let modal = document.getElementById('securityModal');
+    if (modal) {
+      modal.classList.add('active');
+      modal.dataset.fileId = file.id;
+      const accessInput = document.getElementById('accessCode');
+      if (accessInput) accessInput.value = '';
+      return;
+    }
+
+    modal = document.createElement('div');
+    modal.id = 'securityModal';
+    modal.className = 'modal active';
+    modal.style.zIndex = 1500;
+    modal.dataset.fileId = file.id;
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width:420px; margin:6rem auto; padding:1rem;">
+        <h3>Enter password to access file</h3>
+        <input id="accessCode" type="password" placeholder="Password" style="width:100%; padding:0.5rem; margin:0.5rem 0;" />
+        <div style="display:flex; gap:.5rem; justify-content:flex-end;">
+          <button id="cancelAccess" class="btn">Cancel</button>
+          <button id="confirmAccess" class="btn btn-primary">Submit</button>
+        </div>
+        <div id="passwordHint" style="margin-top:0.5rem; color:var(--text-muted); font-size:0.9rem;"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    document.getElementById('cancelAccess').addEventListener('click', () => modal.remove());
+    document.getElementById('confirmAccess').addEventListener('click', () => { window.verifyAccess && window.verifyAccess(); });
+
+    const hintEl = document.getElementById('passwordHint');
+    if (hintEl && file.storedGeneratedPasswordHint) {
+      hintEl.textContent = `Hint: ${file.storedGeneratedPasswordHint} (if you chose auto-generated password)`;
+    } else if (hintEl) {
+      hintEl.textContent = '';
+    }
+  };
+
+  ModernFilingSystem.prototype.resetUploadForm = function() {
+    const encryptUpload = document.getElementById('encryptUpload');
+    if (encryptUpload) encryptUpload.checked = false;
+    const passwordInputGroup = document.getElementById('passwordInputGroup');
+    if (passwordInputGroup) passwordInputGroup.style.display = 'none';
+    const customPassword = document.getElementById('customPassword');
+    if (customPassword) customPassword.value = '';
+    const customRadio = document.querySelector('input[name="passwordType"][value="custom"]');
+    if (customRadio) customRadio.checked = true;
+    this.checkPasswordStrength ? this.checkPasswordStrength('') : null;
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) fileInput.value = '';
+  };
+
+  window.verifyAccess = async function() {
+    const modal = document.getElementById('securityModal');
+    const fileId = modal?.dataset.fileId;
+    const enteredPassword = document.getElementById('accessCode')?.value;
+
+    if (!fileId || !enteredPassword) {
+      window.filingSystem && window.filingSystem.addNotification ? window.filingSystem.addNotification('Please enter a password', 'error') : alert('Please enter a password');
+      return;
+    }
+
+    const file = window.filingSystem && window.filingSystem.findFile ? window.filingSystem.findFile(fileId) : null;
+    if (!file) {
+      window.filingSystem && window.filingSystem.addNotification ? window.filingSystem.addNotification('File not found', 'error') : alert('File not found');
+      return;
+    }
+
+    if (file.encrypted && file.encryptedMeta) {
+      try {
+        const plainAB = await window.filingSystem.decryptArrayBufferWithPassword(
+          file.content,
+          file.encryptedMeta.iv,
+          file.encryptedMeta.salt,
+          enteredPassword
+        );
+
+        const blob = new Blob([plainAB], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        window.filingSystem.closeModals && window.filingSystem.closeModals();
+        window.filingSystem.showFileDetails && window.filingSystem.showFileDetails(file);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+        const accessInput = document.getElementById('accessCode');
+        if (accessInput) accessInput.value = '';
+
+        window.filingSystem.addNotification && window.filingSystem.addNotification('Access granted', 'success');
+        window.filingSystem.addActivity && window.filingSystem.addActivity('download', `Accessed secure file "${file.name}"`);
+      } catch (e) {
+        window.filingSystem.addNotification && window.filingSystem.addNotification('Incorrect password or corrupted file', 'error');
+        const accessInput = document.getElementById('accessCode');
+        if (accessInput) accessInput.value = '';
+      }
+    } else {
+      if (file.password && file.password === enteredPassword) {
+        window.filingSystem.closeModals && window.filingSystem.closeModals();
+        window.filingSystem.showFileDetails && window.filingSystem.showFileDetails(file);
+        const accessInput = document.getElementById('accessCode');
+        if (accessInput) accessInput.value = '';
+        window.filingSystem.addNotification && window.filingSystem.addNotification('Access granted (legacy)', 'success');
+        window.filingSystem.addActivity && window.filingSystem.addActivity('download', `Accessed secure file "${file.name}"`);
+      } else {
+        window.filingSystem.addNotification && window.filingSystem.addNotification('Incorrect password', 'error');
+        const accessInput = document.getElementById('accessCode');
+        if (accessInput) accessInput.value = '';
+      }
+    }
+  };
+
+})(); // end IIFE

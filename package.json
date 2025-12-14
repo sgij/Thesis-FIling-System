@@ -1,0 +1,31 @@
+{
+  "name": "stclare-filing-system",
+  "version": "1.0.0",
+  "description": "St. Clare College Document Management System - A modern HTML5 filing application",
+  "type": "module",
+  "main": "src/index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src/**/*.js",
+    "lint:fix": "eslint src/**/*.js --fix",
+    "format": "prettier --write \"src/**/*.{js,css,html}\"",
+    "format:check": "prettier --check \"src/**/*.{js,css,html}\""
+  },
+  "keywords": [
+    "filing-system",
+    "document-management",
+    "html5",
+    "vite",
+    "vanilla-js",
+    "modern-ui"
+  ],
+  "author": "St. Clare College",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "prettier": "^3.1.1",
+    "vite": "^5.4.20"
+  }
+}
