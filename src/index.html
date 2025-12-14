@@ -141,7 +141,7 @@
                             <div class="storage-used" id="storageBar"></div>
                         </div>
                         <div class="storage-text">
-                            <span id="storageUsed">0 MB</span> / <span id="storageTotal">100 MB</span>
+                            <span id="storageUsed">0 Bytes</span> / <span id="storageTotal">--</span>
                         </div>
                     </div>
                 </div>
@@ -525,7 +525,7 @@
                                 <div class="storage-usage-display" id="storageUsageDisplay">
                                     <div class="storage-usage-header">
                                         <span>Storage Usage</span>
-                                        <span id="storageUsageText">0 MB / 100 GB</span>
+                                        <span id="storageUsageText">0 MB / --</span>
                                     </div>
                                     <div class="storage-usage-bar">
                                         <div class="storage-usage-fill" id="storageUsageFill" style="width: 0%"></div>
@@ -564,21 +564,13 @@
                                     <div class="storage-limit-input-group">
                                         <label>Storage Limit:</label>
                                         <div class="storage-limit-inputs">
-                                            <input type="number" id="storageLimitValue" min="1" max="10000" value="100" class="storage-limit-number">
+                                            <input type="number" id="storageLimitValue" min="1" max="10000" value="0" class="storage-limit-number">
                                             <select id="storageLimitUnit" class="storage-limit-unit">
                                                 <option value="MB">MB</option>
                                                 <option value="GB" selected>GB</option>
                                                 <option value="TB">TB</option>
                                             </select>
                                         </div>
-                                    </div>
-
-                                    <div class="storage-limit-presets">
-                                        <span>Quick Set:</span>
-                                        <button class="btn btn-sm btn-ghost" onclick="filingSystem.setStorageLimitPreset(100, 'GB')">100 GB</button>
-                                        <button class="btn btn-sm btn-ghost" onclick="filingSystem.setStorageLimitPreset(500, 'GB')">500 GB</button>
-                                        <button class="btn btn-sm btn-ghost" onclick="filingSystem.setStorageLimitPreset(1, 'TB')">1 TB</button>
-                                        <button class="btn btn-sm btn-ghost" onclick="filingSystem.setStorageLimitPreset(2, 'TB')">2 TB</button>
                                     </div>
 
                                     <button class="btn btn-primary" onclick="filingSystem.applyStorageLimit()">
