@@ -1,4 +1,7 @@
 // Modern Filing System Application with Custom Password Support
+// Import FileSystemService
+import FileSystemService from './storage/FileSystemService.js';
+
 class ModernFilingSystem {
     constructor() {
         this.files = JSON.parse(localStorage.getItem('modernFilingFiles')) || [];
@@ -7,6 +10,11 @@ class ModernFilingSystem {
         this.currentPage = 'dashboard';
         this.currentView = 'grid';
         this.notifications = [];
+
+        // Initialize File System Service for disk storage
+        this.fileSystemService = new FileSystemService();
+        this.useFileSystem = false; // Will be set to true when connected
+        this.setupComplete = localStorage.getItem('storageSetupComplete') === 'true';
 
         this.init();
     }
@@ -17,25 +25,138 @@ class ModernFilingSystem {
             notifications: true,
             theme: 'dark',
             autoBackup: false,
-            encryptByDefault: false
+            encryptByDefault: false,
+            autoOrganize: true,
+            storageLimit: 100 * 1024 * 1024 * 1024, // 100 GB default
+            storageLimitEnabled: true
         };
     }
 
     init() {
         this.showLoadingScreen();
 
-        setTimeout(() => {
+        setTimeout(async () => {
+            // Try to restore file system connection
+            await this.initializeStorage();
+
             this.hideLoadingScreen();
             this.setupEventListeners();
             this.setupNavigation();
             this.setupDragAndDrop();
+            this.setupStorageSettings();
             this.updateStats();
             this.renderCurrentPage();
             this.updateStorageInfo();
             this.loadTheme();
             this.generateSampleActivity();
             this.setupPasswordInputs();
+            this.detectBrowser();
+
+            // Show setup modal if first time and File System API is supported
+            if (!this.setupComplete && this.fileSystemService.isSupported()) {
+                this.showStorageSetupModal();
+            }
         }, 2000);
+    }
+
+    /**
+     * Initialize storage system
+     */
+    async initializeStorage() {
+        if (this.fileSystemService.isSupported()) {
+            try {
+                const restored = await this.fileSystemService.restoreConnection();
+                if (restored) {
+                    this.useFileSystem = true;
+                    // Sync files from file system
+                    await this.syncFilesFromStorage();
+                    console.log('File System storage restored successfully');
+                }
+            } catch (error) {
+                console.warn('Could not restore file system connection:', error);
+            }
+        }
+    }
+
+    /**
+     * Sync files from file system storage to memory
+     */
+    async syncFilesFromStorage() {
+        if (!this.useFileSystem) return;
+
+        try {
+            const { files, secureFiles } = await this.fileSystemService.getAllFiles();
+            this.files = files;
+            this.secureFiles = secureFiles;
+        } catch (error) {
+            console.error('Error syncing files from storage:', error);
+        }
+    }
+
+    /**
+     * Setup storage settings event listeners
+     */
+    setupStorageSettings() {
+        // Storage limit enable/disable
+        const enableStorageLimit = document.getElementById('enableStorageLimit');
+        if (enableStorageLimit) {
+            enableStorageLimit.addEventListener('change', (e) => {
+                const controls = document.getElementById('storageLimitControls');
+                if (controls) {
+                    controls.style.display = e.target.checked ? 'block' : 'none';
+                }
+                if (!e.target.checked) {
+                    this.fileSystemService.disableStorageLimit();
+                    this.addNotification('Storage limit disabled', 'info');
+                }
+            });
+        }
+
+        // Auto organize setting
+        const autoOrganize = document.getElementById('autoOrganizeSetting');
+        if (autoOrganize) {
+            autoOrganize.checked = this.settings.autoOrganize;
+            autoOrganize.addEventListener('change', (e) => {
+                this.settings.autoOrganize = e.target.checked;
+                this.fileSystemService.config.autoOrganize = e.target.checked;
+                this.fileSystemService.saveConfig();
+                this.saveSettings();
+            });
+        }
+    }
+
+    /**
+     * Detect and display current browser
+     */
+    detectBrowser() {
+        const browserSpan = document.getElementById('currentBrowser');
+        const setupNotice = document.getElementById('setupBrowserNotice');
+
+        let browser = 'Unknown';
+        const ua = navigator.userAgent;
+
+        if (ua.includes('Chrome') && !ua.includes('Edg')) {
+            browser = 'Google Chrome ✓';
+        } else if (ua.includes('Edg')) {
+            browser = 'Microsoft Edge ✓';
+        } else if (ua.includes('Firefox')) {
+            browser = 'Firefox ✗ (Not Supported)';
+        } else if (ua.includes('Safari')) {
+            browser = 'Safari ✗ (Not Supported)';
+        }
+
+        if (browserSpan) browserSpan.textContent = browser;
+
+        // Hide/show browser notice based on support
+        const isSupported = this.fileSystemService.isSupported();
+        const browserNotice = document.getElementById('browserNotice');
+        if (browserNotice) {
+            browserNotice.classList.toggle('success', isSupported);
+            browserNotice.classList.toggle('warning', !isSupported);
+        }
+        if (setupNotice) {
+            setupNotice.classList.toggle('hidden', isSupported);
+        }
     }
 
     showLoadingScreen() {
@@ -383,17 +504,111 @@ class ModernFilingSystem {
     }
 
     updateStorageInfo() {
-        const totalSize = this.getTotalStorageSize();
-        const maxSize = 100 * 1024 * 1024; // 100MB limit for demo
-        const percentage = (totalSize / maxSize) * 100;
+        this.updateStorageInfoAsync();
+    }
+
+    async updateStorageInfoAsync() {
+        let totalSize, maxSize, percentage;
+
+        if (this.useFileSystem) {
+            // Get stats from File System Service
+            const stats = await this.fileSystemService.getStorageStats();
+            totalSize = stats.totalSize;
+            maxSize = stats.storageLimit;
+            percentage = stats.usagePercentage;
+
+            // Update settings page storage display
+            this.updateStorageSettingsDisplay(stats);
+        } else {
+            // Fallback to localStorage calculation
+            totalSize = this.getTotalStorageSize();
+            maxSize = this.settings.storageLimit || 100 * 1024 * 1024 * 1024; // 100GB default
+            percentage = (totalSize / maxSize) * 100;
+        }
 
         const storageBar = document.getElementById('storageBar');
         const storageUsed = document.getElementById('storageUsed');
         const storageTotal = document.getElementById('storageTotal');
 
-        if (storageBar) storageBar.style.width = `${Math.min(percentage, 100)}%`;
+        if (storageBar) {
+            storageBar.style.width = `${Math.min(percentage, 100)}%`;
+            // Add warning/danger classes
+            storageBar.classList.remove('warning', 'danger');
+            if (percentage > 90) storageBar.classList.add('danger');
+            else if (percentage > 75) storageBar.classList.add('warning');
+        }
         if (storageUsed) storageUsed.textContent = this.formatFileSize(totalSize);
         if (storageTotal) storageTotal.textContent = this.formatFileSize(maxSize);
+    }
+
+    /**
+     * Update storage settings display on settings page
+     */
+    updateStorageSettingsDisplay(stats) {
+        // Connection status
+        const statusIndicator = document.getElementById('storageStatusIndicator');
+        const connectionStatus = document.getElementById('storageConnectionStatus');
+        const pathDisplay = document.getElementById('storagePathDisplay');
+
+        if (statusIndicator) {
+            statusIndicator.classList.toggle('connected', stats.isConnected);
+            statusIndicator.classList.toggle('disconnected', !stats.isConnected);
+        }
+        if (connectionStatus) {
+            connectionStatus.textContent = stats.isConnected ? 'Connected' : 'Not Connected';
+        }
+        if (pathDisplay) {
+            pathDisplay.value = stats.storagePath || 'No folder selected';
+        }
+
+        // Usage display
+        const usageText = document.getElementById('storageUsageText');
+        const usageFill = document.getElementById('storageUsageFill');
+        const totalFiles = document.getElementById('storageTotalFiles');
+        const secureFiles = document.getElementById('storageSecureFiles');
+        const usedSpace = document.getElementById('storageUsedSpace');
+
+        if (usageText) {
+            usageText.textContent = `${stats.formattedSize} / ${stats.formattedLimit}`;
+        }
+        if (usageFill) {
+            usageFill.style.width = `${stats.usagePercentage}%`;
+            usageFill.classList.remove('warning', 'danger');
+            if (stats.usagePercentage > 90) usageFill.classList.add('danger');
+            else if (stats.usagePercentage > 75) usageFill.classList.add('warning');
+        }
+        if (totalFiles) totalFiles.textContent = stats.totalFiles;
+        if (secureFiles) secureFiles.textContent = stats.secureFiles;
+        if (usedSpace) usedSpace.textContent = stats.formattedSize;
+
+        // Storage limit inputs
+        const limitValue = document.getElementById('storageLimitValue');
+        const limitUnit = document.getElementById('storageLimitUnit');
+        const enableLimit = document.getElementById('enableStorageLimit');
+
+        if (enableLimit) {
+            enableLimit.checked = stats.storageLimitEnabled;
+        }
+
+        // Parse current limit to value and unit
+        if (limitValue && limitUnit) {
+            const { value, unit } = this.bytesToValueUnit(stats.storageLimit);
+            limitValue.value = value;
+            limitUnit.value = unit;
+        }
+    }
+
+    /**
+     * Convert bytes to value and unit
+     */
+    bytesToValueUnit(bytes) {
+        if (bytes >= 1024 * 1024 * 1024 * 1024) {
+            return { value: Math.round(bytes / (1024 * 1024 * 1024 * 1024)), unit: 'TB' };
+        } else if (bytes >= 1024 * 1024 * 1024) {
+            return { value: Math.round(bytes / (1024 * 1024 * 1024)), unit: 'GB' };
+        } else {
+            return { value: Math.round(bytes / (1024 * 1024)), unit: 'MB' };
+        }
     }
 
     getTotalStorageSize() {
@@ -415,6 +630,82 @@ class ModernFilingSystem {
             }
         }
 
+        // Use File System API if connected, otherwise use localStorage
+        if (this.useFileSystem) {
+            this.handleFileUploadToFileSystem(files, shouldEncrypt, encryptionPassword);
+        } else {
+            this.handleFileUploadToLocalStorage(files, shouldEncrypt, encryptionPassword);
+        }
+    }
+
+    /**
+     * Handle file upload to File System (disk storage)
+     */
+    async handleFileUploadToFileSystem(files, shouldEncrypt, encryptionPassword) {
+        this.showUploadProgress(files.length);
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+
+            try {
+                // Check storage quota
+                const hasSpace = await this.fileSystemService.checkStorageQuota(file.size);
+                if (!hasSpace) {
+                    this.addNotification(`Storage limit reached. Cannot upload "${file.name}"`, 'error');
+                    failCount++;
+                    continue;
+                }
+
+                // Save file to disk
+                const metadata = await this.fileSystemService.saveFile(file, {
+                    encrypt: shouldEncrypt,
+                    password: encryptionPassword
+                });
+
+                // Update in-memory arrays
+                if (shouldEncrypt) {
+                    this.secureFiles.push(metadata);
+                } else {
+                    this.files.push(metadata);
+                }
+
+                successCount++;
+                this.updateUploadProgress(i + 1, files.length);
+                this.addNotification(`File "${file.name}" uploaded successfully${shouldEncrypt ? ' and encrypted' : ''}`, 'success');
+
+            } catch (error) {
+                console.error(`Error uploading ${file.name}:`, error);
+                this.addNotification(`Failed to upload "${file.name}": ${error.message}`, 'error');
+                failCount++;
+            }
+        }
+
+        // Finalize upload
+        setTimeout(() => {
+            this.hideUploadProgress();
+            this.updateStats();
+            this.updateStorageInfo();
+            this.renderCurrentPage();
+
+            if (successCount > 0) {
+                this.addActivity('upload', `Uploaded ${successCount} file${successCount > 1 ? 's' : ''} to storage${shouldEncrypt ? ' with encryption' : ''}`);
+            }
+
+            this.resetUploadForm();
+        }, 500);
+
+        // Clear file input
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput) fileInput.value = '';
+    }
+
+    /**
+     * Handle file upload to localStorage (fallback)
+     */
+    handleFileUploadToLocalStorage(files, shouldEncrypt, encryptionPassword) {
         this.showUploadProgress(files.length);
 
         Array.from(files).forEach((file, index) => {
@@ -690,8 +981,13 @@ class ModernFilingSystem {
         if (file.encrypted) {
             this.showSecurityModal(file);
         } else {
-            this.addNotification(`Downloading ${file.name}...`, 'info');
-            this.addActivity('download', `Downloaded "${file.name}"`);
+            // Download from File System if using disk storage
+            if (this.useFileSystem) {
+                this.downloadFileFromStorage(fileId);
+            } else {
+                this.addNotification(`File content not available (metadata only in browser storage)`, 'warning');
+                this.addActivity('download', `Attempted to download "${file.name}"`);
+            }
         }
     }
 
@@ -701,6 +997,40 @@ class ModernFilingSystem {
         const file = this.findFile(fileId);
         if (!file) return;
 
+        // Delete from File System if using disk storage
+        if (this.useFileSystem) {
+            this.deleteFileFromStorage(fileId, file);
+        } else {
+            this.deleteFileFromLocalStorage(fileId, file);
+        }
+    }
+
+    /**
+     * Delete file from File System storage
+     */
+    async deleteFileFromStorage(fileId, file) {
+        try {
+            await this.fileSystemService.deleteFile(fileId);
+
+            // Update in-memory arrays
+            this.files = this.files.filter(f => f.id !== fileId);
+            this.secureFiles = this.secureFiles.filter(f => f.id !== fileId);
+
+            this.updateStats();
+            this.updateStorageInfo();
+            this.renderCurrentPage();
+            this.addNotification(`File "${file.name}" deleted successfully`, 'success');
+            this.addActivity('delete', `Deleted "${file.name}"`);
+        } catch (error) {
+            console.error('Error deleting file:', error);
+            this.addNotification(`Failed to delete file: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Delete file from localStorage
+     */
+    deleteFileFromLocalStorage(fileId, file) {
         this.files = this.files.filter(f => f.id !== fileId);
         this.secureFiles = this.secureFiles.filter(f => f.id !== fileId);
 
@@ -1538,9 +1868,401 @@ class ModernFilingSystem {
         // Settings page is already rendered in HTML
         const autoSaveSetting = document.getElementById('autoSaveSetting');
         const notificationsSetting = document.getElementById('notificationsSetting');
+        const autoOrganizeSetting = document.getElementById('autoOrganizeSetting');
 
         if (autoSaveSetting) autoSaveSetting.checked = this.settings.autoSave;
         if (notificationsSetting) notificationsSetting.checked = this.settings.notifications;
+        if (autoOrganizeSetting) autoOrganizeSetting.checked = this.settings.autoOrganize !== false;
+
+        // Update storage settings display
+        this.updateStorageInfo();
+    }
+
+    // =====================================================
+    // STORAGE MANAGEMENT METHODS
+    // =====================================================
+
+    /**
+     * Show storage setup modal for first-time users
+     */
+    showStorageSetupModal() {
+        const modal = document.getElementById('storageSetupModal');
+        if (modal) {
+            modal.classList.add('active');
+        }
+    }
+
+    /**
+     * Hide storage setup modal
+     */
+    hideStorageSetupModal() {
+        const modal = document.getElementById('storageSetupModal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+    }
+
+    /**
+     * Step 1: Select storage folder (from setup modal)
+     */
+    async setupSelectFolderStep1() {
+        if (!this.fileSystemService.isSupported()) {
+            this.addNotification('File System Access API not supported. Please use Chrome or Edge browser.', 'error');
+            return;
+        }
+
+        try {
+            const success = await this.fileSystemService.selectStorageFolder();
+
+            if (success) {
+                this.useFileSystem = true;
+
+                // Move to step 2
+                this.showSetupStep2();
+            }
+        } catch (error) {
+            console.error('Error selecting storage folder:', error);
+            this.addNotification(`Failed to connect storage: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Show setup step 2 (configure storage limit)
+     */
+    showSetupStep2() {
+        const step1 = document.getElementById('setupStep1');
+        const step2 = document.getElementById('setupStep2');
+        const selectedPath = document.getElementById('setupSelectedPath');
+        const detectedValue = document.getElementById('detectedStorageValue');
+        const maxStorageLabel = document.getElementById('maxStorageLabel');
+
+        // Hide step 1, show step 2
+        if (step1) step1.style.display = 'none';
+        if (step2) step2.style.display = 'block';
+
+        // Update displayed path
+        if (selectedPath) {
+            selectedPath.textContent = `Selected: ${this.fileSystemService.config.storagePath}`;
+        }
+
+        // Update detected storage
+        const detectedStorage = this.fileSystemService.getDetectedStorage();
+        if (detectedValue) {
+            detectedValue.textContent = detectedStorage.formatted || 'Unable to detect';
+        }
+        if (maxStorageLabel) {
+            maxStorageLabel.textContent = `Use all available storage (${detectedStorage.formatted || 'Unknown'})`;
+        }
+
+        // Store detected max for later use
+        this.detectedMaxStorage = detectedStorage.bytes;
+
+        // Setup radio button event listeners
+        this.setupStorageLimitRadios();
+    }
+
+    /**
+     * Setup event listeners for storage limit radio buttons
+     */
+    setupStorageLimitRadios() {
+        const radios = document.querySelectorAll('input[name="storageLimitOption"]');
+        const customSection = document.getElementById('customLimitSection');
+
+        radios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (customSection) {
+                    customSection.style.display = e.target.value === 'custom' ? 'block' : 'none';
+                }
+            });
+        });
+    }
+
+    /**
+     * Go back to step 1
+     */
+    setupGoBack() {
+        const step1 = document.getElementById('setupStep1');
+        const step2 = document.getElementById('setupStep2');
+
+        if (step1) step1.style.display = 'block';
+        if (step2) step2.style.display = 'none';
+
+        // Disconnect storage since user is going back
+        this.fileSystemService.disconnect();
+        this.useFileSystem = false;
+    }
+
+    /**
+     * Complete setup (from step 2)
+     */
+    setupComplete() {
+        const selectedOption = document.querySelector('input[name="storageLimitOption"]:checked');
+        let storageLimit;
+
+        if (selectedOption && selectedOption.value === 'max') {
+            // Use detected max storage
+            storageLimit = this.detectedMaxStorage || 500 * 1024 * 1024 * 1024; // Fallback to 500 GB
+        } else {
+            // Use custom limit
+            const limitValue = document.getElementById('setupStorageLimitValue');
+            const limitUnit = document.getElementById('setupStorageLimitUnit');
+
+            if (limitValue && limitUnit) {
+                storageLimit = this.parseStorageLimit(limitValue.value, limitUnit.value);
+            } else {
+                storageLimit = 100 * 1024 * 1024 * 1024; // Default 100 GB
+            }
+        }
+
+        // Apply storage limit
+        this.fileSystemService.setStorageLimit(storageLimit);
+        this.settings.storageLimit = storageLimit;
+        this.settings.storageLimitEnabled = true;
+        this.saveSettings();
+
+        // Mark setup as complete
+        this.hideStorageSetupModal();
+        localStorage.setItem('storageSetupComplete', 'true');
+        this.setupComplete = true;
+
+        // Update UI
+        this.updateStorageInfo();
+        this.updateStats();
+
+        // Notify user
+        this.addNotification(`Storage configured: ${this.fileSystemService.formatFileSize(storageLimit)} limit`, 'success');
+        this.addActivity('settings', `Connected storage folder: ${this.fileSystemService.config.storagePath} (${this.fileSystemService.formatFileSize(storageLimit)} limit)`);
+    }
+
+    /**
+     * Legacy method - kept for compatibility
+     */
+    async setupSelectFolder() {
+        await this.setupSelectFolderStep1();
+        if (this.useFileSystem) {
+            // If using from settings page, complete immediately with detected max
+            const detectedStorage = this.fileSystemService.getDetectedStorage();
+            if (detectedStorage.bytes) {
+                this.fileSystemService.setStorageLimit(detectedStorage.bytes);
+                this.settings.storageLimit = detectedStorage.bytes;
+                this.settings.storageLimitEnabled = true;
+                this.saveSettings();
+            }
+            this.hideStorageSetupModal();
+            localStorage.setItem('storageSetupComplete', 'true');
+            this.setupComplete = true;
+        }
+    }
+
+    /**
+     * Skip storage setup (use localStorage fallback)
+     */
+    skipSetup() {
+        this.hideStorageSetupModal();
+        localStorage.setItem('storageSetupComplete', 'true');
+        this.setupComplete = true;
+        this.addNotification('Using browser storage. You can configure disk storage later in Settings.', 'info');
+    }
+
+    /**
+     * Select storage folder (from settings page)
+     */
+    async selectStorageFolder() {
+        if (!this.fileSystemService.isSupported()) {
+            this.addNotification('File System Access API not supported. Please use Chrome or Edge browser.', 'error');
+            return;
+        }
+
+        try {
+            const success = await this.fileSystemService.selectStorageFolder();
+
+            if (success) {
+                this.useFileSystem = true;
+
+                // Get detected storage and show to user
+                const detected = this.fileSystemService.getDetectedStorage();
+                this.addNotification(`Storage folder connected! Detected: ${detected.formatted}`, 'success');
+                this.addActivity('settings', 'Connected storage folder: ' + this.fileSystemService.config.storagePath);
+
+                // Sync any existing localStorage files to new storage
+                await this.migrateLocalStorageToFileSystem();
+
+                this.updateStorageInfo();
+                this.updateStats();
+
+                // Update settings page with detected storage
+                this.showDetectedStorageInSettings(detected);
+            }
+        } catch (error) {
+            console.error('Error selecting storage folder:', error);
+            this.addNotification(`Failed to connect storage: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Show detected storage in settings page
+     */
+    showDetectedStorageInSettings(detected) {
+        const limitValue = document.getElementById('storageLimitValue');
+        const limitUnit = document.getElementById('storageLimitUnit');
+
+        if (detected.bytes && limitValue && limitUnit) {
+            const { value, unit } = this.bytesToValueUnit(detected.bytes);
+            limitValue.value = value;
+            limitUnit.value = unit;
+        }
+    }
+
+    /**
+     * Migrate existing localStorage files to File System storage
+     */
+    async migrateLocalStorageToFileSystem() {
+        const localFiles = JSON.parse(localStorage.getItem('modernFilingFiles')) || [];
+        const localSecureFiles = JSON.parse(localStorage.getItem('modernSecureFiles')) || [];
+
+        if (localFiles.length === 0 && localSecureFiles.length === 0) return;
+
+        // Note: Since localStorage only stored metadata (not actual file content),
+        // we can't migrate the actual files. We just inform the user.
+        if (localFiles.length > 0 || localSecureFiles.length > 0) {
+            this.addNotification(`Note: ${localFiles.length + localSecureFiles.length} file records found in browser storage. These were metadata only and have been preserved.`, 'info');
+        }
+    }
+
+    /**
+     * Refresh storage status
+     */
+    async refreshStorageStatus() {
+        const refreshBtn = document.getElementById('refreshStorageBtn');
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        }
+
+        try {
+            if (this.useFileSystem) {
+                await this.syncFilesFromStorage();
+            }
+            await this.updateStorageInfoAsync();
+            this.updateStats();
+            this.addNotification('Storage status refreshed', 'success');
+        } catch (error) {
+            this.addNotification('Failed to refresh storage status', 'error');
+        } finally {
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            }
+        }
+    }
+
+    /**
+     * Set storage limit preset
+     */
+    setStorageLimitPreset(value, unit) {
+        const limitValue = document.getElementById('storageLimitValue');
+        const limitUnit = document.getElementById('storageLimitUnit');
+
+        if (limitValue) limitValue.value = value;
+        if (limitUnit) limitUnit.value = unit;
+    }
+
+    /**
+     * Apply storage limit from settings
+     */
+    applyStorageLimit() {
+        const limitValue = document.getElementById('storageLimitValue');
+        const limitUnit = document.getElementById('storageLimitUnit');
+        const enableLimit = document.getElementById('enableStorageLimit');
+
+        if (!limitValue || !limitUnit) return;
+
+        const value = parseFloat(limitValue.value);
+        if (isNaN(value) || value <= 0) {
+            this.addNotification('Please enter a valid storage limit', 'error');
+            return;
+        }
+
+        const bytes = this.parseStorageLimit(value, limitUnit.value);
+
+        if (enableLimit && enableLimit.checked) {
+            this.fileSystemService.setStorageLimit(bytes);
+            this.settings.storageLimit = bytes;
+            this.settings.storageLimitEnabled = true;
+        } else {
+            this.fileSystemService.disableStorageLimit();
+            this.settings.storageLimitEnabled = false;
+        }
+
+        this.saveSettings();
+        this.updateStorageInfo();
+        this.addNotification(`Storage limit set to ${value} ${limitUnit.value}`, 'success');
+    }
+
+    /**
+     * Parse storage limit to bytes
+     */
+    parseStorageLimit(value, unit) {
+        const multipliers = {
+            'MB': 1024 * 1024,
+            'GB': 1024 * 1024 * 1024,
+            'TB': 1024 * 1024 * 1024 * 1024
+        };
+        return Math.floor(value * (multipliers[unit] || multipliers['GB']));
+    }
+
+    /**
+     * Convert bytes to a value and unit
+     */
+    bytesToValueUnit(bytes) {
+        const TB = 1024 * 1024 * 1024 * 1024;
+        const GB = 1024 * 1024 * 1024;
+        const MB = 1024 * 1024;
+
+        if (bytes >= TB) {
+            return { value: Math.round(bytes / TB * 10) / 10, unit: 'TB' };
+        } else if (bytes >= GB) {
+            return { value: Math.round(bytes / GB * 10) / 10, unit: 'GB' };
+        } else {
+            return { value: Math.round(bytes / MB * 10) / 10, unit: 'MB' };
+        }
+    }
+
+    /**
+     * Save settings to localStorage
+     */
+    saveSettings() {
+        localStorage.setItem('modernFilingSettings', JSON.stringify(this.settings));
+    }
+
+    /**
+     * Download file from storage
+     */
+    async downloadFileFromStorage(fileId) {
+        if (!this.useFileSystem) {
+            this.addNotification('File content not available (metadata only in browser storage)', 'error');
+            return;
+        }
+
+        try {
+            const { metadata, file } = await this.fileSystemService.getFile(fileId);
+
+            // Create download link
+            const url = URL.createObjectURL(file);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = metadata.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            this.addNotification(`Downloading ${metadata.name}...`, 'info');
+            this.addActivity('download', `Downloaded "${metadata.name}"`);
+        } catch (error) {
+            console.error('Error downloading file:', error);
+            this.addNotification(`Failed to download file: ${error.message}`, 'error');
+        }
     }
 
     // File Preview Modal
@@ -2341,6 +3063,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (accessInput) accessInput.value = '';
       }
     }
+  };
+
+  // Global helper function for setup modal preset buttons
+  window.setSetupLimitPreset = function(value, unit) {
+    const limitValue = document.getElementById('setupStorageLimitValue');
+    const limitUnit = document.getElementById('setupStorageLimitUnit');
+
+    if (limitValue) limitValue.value = value;
+    if (limitUnit) limitUnit.value = unit;
   };
 
 })(); // end IIFE

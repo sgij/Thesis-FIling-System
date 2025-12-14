@@ -493,8 +493,113 @@
                         </div>
                     </div>
                     <div class="settings-container">
+                        <!-- Storage Configuration Section -->
+                        <div class="settings-section storage-settings">
+                            <h3><i class="fas fa-hdd"></i> Storage Configuration</h3>
+
+                            <!-- Storage Connection Status -->
+                            <div class="storage-status-card" id="storageStatusCard">
+                                <div class="storage-status-header">
+                                    <div class="storage-status-indicator" id="storageStatusIndicator">
+                                        <i class="fas fa-circle"></i>
+                                        <span id="storageConnectionStatus">Not Connected</span>
+                                    </div>
+                                    <button class="btn btn-sm" id="refreshStorageBtn" onclick="filingSystem.refreshStorageStatus()">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+
+                                <div class="storage-path-display">
+                                    <label>Storage Location:</label>
+                                    <div class="storage-path-input">
+                                        <input type="text" id="storagePathDisplay" readonly placeholder="No folder selected">
+                                        <button class="btn btn-primary" id="selectStorageFolderBtn" onclick="filingSystem.selectStorageFolder()">
+                                            <i class="fas fa-folder-open"></i>
+                                            Select Folder
+                                        </button>
+                                    </div>
+                                    <small class="storage-path-hint">Select a local folder, network share, or mapped drive (e.g., D:\Registrar_Files or \\SERVER\Share)</small>
+                                </div>
+
+                                <!-- Storage Usage Display -->
+                                <div class="storage-usage-display" id="storageUsageDisplay">
+                                    <div class="storage-usage-header">
+                                        <span>Storage Usage</span>
+                                        <span id="storageUsageText">0 MB / 100 GB</span>
+                                    </div>
+                                    <div class="storage-usage-bar">
+                                        <div class="storage-usage-fill" id="storageUsageFill" style="width: 0%"></div>
+                                    </div>
+                                    <div class="storage-usage-details">
+                                        <div class="storage-stat">
+                                            <i class="fas fa-file-alt"></i>
+                                            <span id="storageTotalFiles">0</span> files
+                                        </div>
+                                        <div class="storage-stat">
+                                            <i class="fas fa-shield-alt"></i>
+                                            <span id="storageSecureFiles">0</span> secure
+                                        </div>
+                                        <div class="storage-stat">
+                                            <i class="fas fa-database"></i>
+                                            <span id="storageUsedSpace">0 MB</span> used
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Storage Limit Configuration -->
+                            <div class="setting-item storage-limit-config">
+                                <div class="setting-item-header">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="enableStorageLimit" checked>
+                                        <span class="checkmark"></span>
+                                        <div class="label-content">
+                                            <strong>Enable Storage Limit</strong>
+                                            <small>Set a maximum storage size for the filing system</small>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <div class="storage-limit-controls" id="storageLimitControls">
+                                    <div class="storage-limit-input-group">
+                                        <label>Storage Limit:</label>
+                                        <div class="storage-limit-inputs">
+                                            <input type="number" id="storageLimitValue" min="1" max="10000" value="100" class="storage-limit-number">
+                                            <select id="storageLimitUnit" class="storage-limit-unit">
+                                                <option value="MB">MB</option>
+                                                <option value="GB" selected>GB</option>
+                                                <option value="TB">TB</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="storage-limit-presets">
+                                        <span>Quick Set:</span>
+                                        <button class="btn btn-sm btn-ghost" onclick="filingSystem.setStorageLimitPreset(100, 'GB')">100 GB</button>
+                                        <button class="btn btn-sm btn-ghost" onclick="filingSystem.setStorageLimitPreset(500, 'GB')">500 GB</button>
+                                        <button class="btn btn-sm btn-ghost" onclick="filingSystem.setStorageLimitPreset(1, 'TB')">1 TB</button>
+                                        <button class="btn btn-sm btn-ghost" onclick="filingSystem.setStorageLimitPreset(2, 'TB')">2 TB</button>
+                                    </div>
+
+                                    <button class="btn btn-primary" onclick="filingSystem.applyStorageLimit()">
+                                        <i class="fas fa-save"></i> Apply Limit
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Browser Compatibility Notice -->
+                            <div class="browser-notice" id="browserNotice">
+                                <i class="fas fa-info-circle"></i>
+                                <div class="browser-notice-content">
+                                    <strong>Browser Requirement</strong>
+                                    <p>File System Access requires <strong>Chrome</strong> or <strong>Edge</strong> browser. Current browser: <span id="currentBrowser">Unknown</span></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- General Settings Section -->
                         <div class="settings-section">
-                            <h3>General Settings</h3>
+                            <h3><i class="fas fa-cog"></i> General Settings</h3>
                             <div class="setting-item">
                                 <label class="checkbox-label">
                                     <input type="checkbox" id="autoSaveSetting">
@@ -512,6 +617,16 @@
                                     <div class="label-content">
                                         <strong>Notifications</strong>
                                         <small>Show system notifications</small>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="autoOrganizeSetting" checked>
+                                    <span class="checkmark"></span>
+                                    <div class="label-content">
+                                        <strong>Auto Organize Files</strong>
+                                        <small>Automatically organize files into Documents, Images, Secure folders</small>
                                     </div>
                                 </label>
                             </div>
@@ -555,6 +670,139 @@
             </div>
         </div>
     </div>
+
+    <!-- Storage Setup Modal (First Time) - Step 1: Select Folder -->
+    <div id="storageSetupModal" class="modal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3><i class="fas fa-folder-open"></i> Setup Storage Location</h3>
+            </div>
+            <div class="modal-body">
+                <!-- Step 1: Welcome & Folder Selection -->
+                <div id="setupStep1" class="setup-step active">
+                    <div class="setup-welcome">
+                        <div class="setup-icon">
+                            <i class="fas fa-university"></i>
+                        </div>
+                        <h2>Welcome to St. Clare Filing System</h2>
+                        <p>Before you begin, please select where to store your files.</p>
+                    </div>
+
+                    <div class="setup-options">
+                        <div class="setup-info-card">
+                            <h4><i class="fas fa-info-circle"></i> Storage Options</h4>
+                            <ul>
+                                <li><i class="fas fa-hdd"></i> <strong>Local Drive:</strong> D:\Registrar_Files</li>
+                                <li><i class="fas fa-network-wired"></i> <strong>Network Share:</strong> \\SERVER\Registrar</li>
+                                <li><i class="fas fa-server"></i> <strong>Mapped Drive:</strong> Z:\FilingSystem</li>
+                            </ul>
+                            <p class="setup-note">All options support RAID arrays transparently.</p>
+                        </div>
+                    </div>
+
+                    <div class="setup-actions">
+                        <button class="btn btn-lg btn-primary" id="setupSelectFolderBtn" onclick="filingSystem.setupSelectFolderStep1()">
+                            <i class="fas fa-folder-open"></i> Select Storage Folder
+                        </button>
+                        <button class="btn btn-ghost" onclick="filingSystem.skipSetup()">
+                            Skip for now (use browser storage)
+                        </button>
+                    </div>
+
+                    <div class="setup-browser-notice" id="setupBrowserNotice">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>This feature requires <strong>Chrome</strong> or <strong>Edge</strong> browser.</span>
+                    </div>
+                </div>
+
+                <!-- Step 2: Configure Storage Limit -->
+                <div id="setupStep2" class="setup-step" style="display: none;">
+                    <div class="setup-welcome">
+                        <div class="setup-icon success">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <h2>Storage Folder Connected!</h2>
+                        <p id="setupSelectedPath">Selected: </p>
+                    </div>
+
+                    <div class="setup-detected-storage">
+                        <div class="detected-storage-card">
+                            <div class="detected-storage-icon">
+                                <i class="fas fa-hdd"></i>
+                            </div>
+                            <div class="detected-storage-info">
+                                <h4>Detected Available Storage</h4>
+                                <div class="detected-storage-value" id="detectedStorageValue">Detecting...</div>
+                                <small class="detected-storage-note">This is an estimate of your available disk space</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setup-storage-config">
+                        <h4><i class="fas fa-sliders-h"></i> Configure Storage Limit</h4>
+                        <p class="setup-config-desc">Choose how much storage to allocate for the filing system. You can use the detected maximum or set a custom limit.</p>
+
+                        <div class="storage-config-options">
+                            <label class="storage-config-option">
+                                <input type="radio" name="storageLimitOption" value="max" checked>
+                                <span class="radio-mark"></span>
+                                <div class="option-content">
+                                    <strong>Use Maximum Available</strong>
+                                    <small id="maxStorageLabel">Use all detected storage</small>
+                                </div>
+                            </label>
+
+                            <label class="storage-config-option">
+                                <input type="radio" name="storageLimitOption" value="custom">
+                                <span class="radio-mark"></span>
+                                <div class="option-content">
+                                    <strong>Set Custom Limit</strong>
+                                    <small>Specify your own storage limit</small>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="custom-limit-section" id="customLimitSection" style="display: none;">
+                            <div class="setup-limit-inputs">
+                                <input type="number" id="setupStorageLimitValue" min="1" max="10000" value="100" class="storage-limit-number">
+                                <select id="setupStorageLimitUnit" class="storage-limit-unit">
+                                    <option value="MB">MB</option>
+                                    <option value="GB" selected>GB</option>
+                                    <option value="TB">TB</option>
+                                </select>
+                            </div>
+                            <div class="setup-limit-presets">
+                                <span>Quick Set:</span>
+                                <button class="btn btn-sm btn-ghost" onclick="setSetupLimitPreset(100, 'GB')">100 GB</button>
+                                <button class="btn btn-sm btn-ghost" onclick="setSetupLimitPreset(500, 'GB')">500 GB</button>
+                                <button class="btn btn-sm btn-ghost" onclick="setSetupLimitPreset(1, 'TB')">1 TB</button>
+                                <button class="btn btn-sm btn-ghost" onclick="setSetupLimitPreset(2, 'TB')">2 TB</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setup-actions">
+                        <button class="btn btn-ghost" onclick="filingSystem.setupGoBack()">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        <button class="btn btn-lg btn-primary" onclick="filingSystem.setupComplete()">
+                            <i class="fas fa-check"></i> Complete Setup
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Helper function for setup presets
+        function setSetupLimitPreset(value, unit) {
+            const limitValue = document.getElementById('setupStorageLimitValue');
+            const limitUnit = document.getElementById('setupStorageLimitUnit');
+            if (limitValue) limitValue.value = value;
+            if (limitUnit) limitUnit.value = unit;
+        }
+    </script>
 
     <script type="module" src="./js/main.js"></script>
 </body>
