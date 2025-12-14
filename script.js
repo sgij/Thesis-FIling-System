@@ -7,7 +7,7 @@ class ModernFilingSystem {
         this.currentPage = 'dashboard';
         this.currentView = 'grid';
         this.notifications = [];
-        
+
         this.init();
     }
 
@@ -23,7 +23,7 @@ class ModernFilingSystem {
 
     init() {
         this.showLoadingScreen();
-        
+
         setTimeout(() => {
             this.hideLoadingScreen();
             this.setupEventListeners();
@@ -41,7 +41,7 @@ class ModernFilingSystem {
     showLoadingScreen() {
         const loadingScreen = document.getElementById('loadingScreen');
         const mainApp = document.getElementById('mainApp');
-        
+
         loadingScreen.style.display = 'flex';
         mainApp.classList.add('hidden');
     }
@@ -49,7 +49,7 @@ class ModernFilingSystem {
     hideLoadingScreen() {
         const loadingScreen = document.getElementById('loadingScreen');
         const mainApp = document.getElementById('mainApp');
-        
+
         loadingScreen.style.opacity = '0';
         setTimeout(() => {
             loadingScreen.style.display = 'none';
@@ -77,7 +77,7 @@ class ModernFilingSystem {
     checkPasswordStrength(password) {
         const strengthBar = document.querySelector('.strength-fill');
         const strengthText = document.querySelector('.strength-text');
-        
+
         if (!strengthBar || !strengthText) return;
 
         let strength = 0;
@@ -135,7 +135,7 @@ class ModernFilingSystem {
         } else if (type === 'auto') {
             if (customPasswordInput) customPasswordInput.style.display = 'none';
             if (autoPasswordDisplay) autoPasswordDisplay.style.display = 'block';
-            
+
             // Generate a secure password
             const generatedPassword = this.generateSecurePassword();
             if (generatedPasswordSpan) generatedPasswordSpan.textContent = generatedPassword;
@@ -146,25 +146,25 @@ class ModernFilingSystem {
         const length = 12;
         const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
         let password = "";
-        
+
         // Ensure at least one character from each category
         password += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)]; // lowercase
         password += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)]; // uppercase
         password += "0123456789"[Math.floor(Math.random() * 10)]; // number
         password += "!@#$%^&*"[Math.floor(Math.random() * 8)]; // special
-        
+
         // Fill the rest randomly
         for (let i = password.length; i < length; i++) {
             password += charset[Math.floor(Math.random() * charset.length)];
         }
-        
+
         // Shuffle the password
         return password.split('').sort(() => Math.random() - 0.5).join('');
     }
 
     getEncryptionPassword() {
         const passwordType = document.querySelector('input[name="passwordType"]:checked')?.value;
-        
+
         if (passwordType === 'custom') {
             const customPassword = document.getElementById('customPassword')?.value;
             if (!customPassword || customPassword.length < 6) {
@@ -176,7 +176,7 @@ class ModernFilingSystem {
             const generatedPassword = document.getElementById('generatedPassword')?.textContent;
             return generatedPassword || this.generateSecurePassword();
         }
-        
+
         return null;
     }
 
@@ -217,11 +217,11 @@ class ModernFilingSystem {
         // Filter controls
         const fileTypeFilter = document.getElementById('fileTypeFilter');
         const sortFilter = document.getElementById('sortFilter');
-        
+
         if (fileTypeFilter) {
             fileTypeFilter.addEventListener('change', () => this.applyFilters());
         }
-        
+
         if (sortFilter) {
             sortFilter.addEventListener('change', () => this.applyFilters());
         }
@@ -246,7 +246,7 @@ class ModernFilingSystem {
             item.addEventListener('click', (e) => {
                 const page = e.currentTarget.dataset.page;
                 this.switchPage(page);
-                
+
                 // Update active state
                 document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
                 e.currentTarget.classList.add('active');
@@ -345,7 +345,7 @@ class ModernFilingSystem {
         // Update sidebar counts
         const totalFileCount = document.getElementById('totalFileCount');
         const secureFileCount = document.getElementById('secureFileCount');
-        
+
         if (totalFileCount) totalFileCount.textContent = totalFiles;
         if (secureFileCount) secureFileCount.textContent = secureCount;
 
@@ -430,7 +430,7 @@ class ModernFilingSystem {
                         this.updateStorageInfo();
                         this.renderCurrentPage();
                         this.addActivity('upload', `Uploaded ${files.length} file${files.length > 1 ? 's' : ''}${shouldEncrypt ? ' with encryption' : ''}`);
-                        
+
                         // Reset form
                         this.resetUploadForm();
                     }, 500);
@@ -447,19 +447,19 @@ class ModernFilingSystem {
         // Reset encryption checkbox
         const encryptUpload = document.getElementById('encryptUpload');
         if (encryptUpload) encryptUpload.checked = false;
-        
+
         // Hide password input group
         const passwordInputGroup = document.getElementById('passwordInputGroup');
         if (passwordInputGroup) passwordInputGroup.style.display = 'none';
-        
+
         // Clear password inputs
         const customPassword = document.getElementById('customPassword');
         if (customPassword) customPassword.value = '';
-        
+
         // Reset radio buttons
         const customRadio = document.querySelector('input[name="passwordType"][value="custom"]');
         if (customRadio) customRadio.checked = true;
-        
+
         // Reset password strength indicator
         this.checkPasswordStrength('');
     }
@@ -527,7 +527,7 @@ class ModernFilingSystem {
         if (!filesGrid) return;
 
         const allFiles = [...this.files, ...this.secureFiles];
-        
+
         if (allFiles.length === 0) {
             filesGrid.innerHTML = this.getEmptyState('No files yet', 'Upload your first document to get started');
             return;
@@ -728,7 +728,7 @@ class ModernFilingSystem {
         reader.onload = (e) => {
             try {
                 const data = JSON.parse(e.target.result);
-                
+
                 if (!confirm(`Import backup from ${new Date(data.exportDate).toLocaleString()}? This will replace all current data.`)) {
                     return;
                 }
@@ -763,7 +763,7 @@ class ModernFilingSystem {
         };
 
         this.notifications.unshift(notification);
-        
+
         // Keep only last 10 notifications
         if (this.notifications.length > 10) {
             this.notifications = this.notifications.slice(0, 10);
@@ -782,7 +782,7 @@ class ModernFilingSystem {
                 <span>${message}</span>
             </div>
         `;
-        
+
         toast.style.cssText = `
             position: fixed;
             top: 100px;
@@ -818,14 +818,14 @@ class ModernFilingSystem {
 
         const activities = JSON.parse(localStorage.getItem('modernFilingActivities')) || [];
         activities.unshift(activity);
-        
+
         // Keep only last 50 activities
         if (activities.length > 50) {
             activities.splice(50);
         }
 
         localStorage.setItem('modernFilingActivities', JSON.stringify(activities));
-        
+
         if (this.currentPage === 'dashboard') {
             this.renderRecentActivity();
         }
@@ -916,7 +916,7 @@ class ModernFilingSystem {
     loadTheme() {
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
-        
+
         const themeToggle = document.getElementById('themeToggle');
         if (themeToggle) {
             const icon = themeToggle.querySelector('i');
@@ -931,7 +931,7 @@ class ModernFilingSystem {
         const secureCount = this.secureFiles.length;
         const totalCount = this.files.length + this.secureFiles.length;
         const securityPercentage = totalCount > 0 ? Math.round((secureCount / totalCount) * 100) : 0;
-        
+
         this.addNotification(`Security scan complete: ${securityPercentage}% of files are encrypted`, 'info');
     }
 
@@ -950,12 +950,12 @@ class ModernFilingSystem {
 
     handleGlobalSearch(query) {
         if (!query.trim()) return;
-        
+
         const allFiles = [...this.files, ...this.secureFiles];
-        const results = allFiles.filter(file => 
+        const results = allFiles.filter(file =>
             file.name.toLowerCase().includes(query.toLowerCase())
         );
-        
+
         // Show search suggestions or results
         console.log(`Found ${results.length} files matching "${query}"`);
     }
@@ -976,7 +976,7 @@ class ModernFilingSystem {
         // Settings page is already rendered in HTML
         const autoSaveSetting = document.getElementById('autoSaveSetting');
         const notificationsSetting = document.getElementById('notificationsSetting');
-        
+
         if (autoSaveSetting) autoSaveSetting.checked = this.settings.autoSave;
         if (notificationsSetting) notificationsSetting.checked = this.settings.notifications;
     }
@@ -986,7 +986,7 @@ class ModernFilingSystem {
 window.switchPage = function(pageName) {
     if (window.filingSystem) {
         window.filingSystem.switchPage(pageName);
-        
+
         // Update active menu item
         document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
         document.querySelector(`[data-page="${pageName}"]`)?.classList.add('active');
@@ -997,10 +997,10 @@ window.toggleTheme = function() {
     const html = document.documentElement;
     const currentTheme = html.getAttribute('data-theme');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
+
     html.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
-    
+
     const themeToggle = document.getElementById('themeToggle');
     if (themeToggle) {
         const icon = themeToggle.querySelector('i');
@@ -1013,7 +1013,7 @@ window.toggleTheme = function() {
 window.togglePasswordInput = function() {
     const encryptUpload = document.getElementById('encryptUpload');
     const passwordInputGroup = document.getElementById('passwordInputGroup');
-    
+
     if (encryptUpload && passwordInputGroup) {
         if (encryptUpload.checked) {
             passwordInputGroup.style.display = 'block';
@@ -1031,7 +1031,7 @@ window.togglePasswordVisibility = function(inputId) {
     const input = document.getElementById(inputId);
     const button = input.nextElementSibling;
     const icon = button.querySelector('i');
-    
+
     if (input.type === 'password') {
         input.type = 'text';
         icon.className = 'fas fa-eye-slash';
@@ -1054,12 +1054,12 @@ window.verifyAccess = function() {
     const modal = document.getElementById('securityModal');
     const fileId = modal?.dataset.fileId;
     const enteredPassword = document.getElementById('accessCode')?.value;
-    
+
     if (!fileId || !enteredPassword) {
         window.filingSystem.addNotification('Please enter a password', 'error');
         return;
     }
-    
+
     const file = window.filingSystem.findFile(fileId);
     if (file && file.password === enteredPassword) {
         window.filingSystem.closeModals();
@@ -1076,7 +1076,7 @@ window.verifyAccess = function() {
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     window.filingSystem = new ModernFilingSystem();
-    
+
     // Add CSS animations
     const style = document.createElement('style');
     style.textContent = `
@@ -1084,12 +1084,12 @@ document.addEventListener('DOMContentLoaded', function() {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
-        
+
         @keyframes slideOutRight {
             from { transform: translateX(0); opacity: 1; }
             to { transform: translateX(100%); opacity: 0; }
         }
-        
+
         .toast-content {
             display: flex;
             align-items: center;
@@ -1097,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     `;
     document.head.appendChild(style);
-    
+
     console.log('🚀 Modern Filing System v2.0 with Custom Password Support initialized successfully!');
 });
 

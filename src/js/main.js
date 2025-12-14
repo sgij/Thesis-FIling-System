@@ -27,7 +27,7 @@ class ModernFilingSystem {
             autoBackup: false,
             encryptByDefault: false,
             autoOrganize: true,
-            storageLimit: 100 * 1024 * 1024 * 1024, // 100 GB default
+            storageLimit: null, // Will be set when storage folder is selected
             storageLimitEnabled: true
         };
     }
@@ -509,6 +509,7 @@ class ModernFilingSystem {
 
     async updateStorageInfoAsync() {
         let totalSize, maxSize, percentage;
+        let isConnected = false;
 
         if (this.useFileSystem) {
             // Get stats from File System Service
@@ -516,14 +517,15 @@ class ModernFilingSystem {
             totalSize = stats.totalSize;
             maxSize = stats.storageLimit;
             percentage = stats.usagePercentage;
+            isConnected = stats.isConnected;
 
             // Update settings page storage display
             this.updateStorageSettingsDisplay(stats);
         } else {
             // Fallback to localStorage calculation
             totalSize = this.getTotalStorageSize();
-            maxSize = this.settings.storageLimit || 100 * 1024 * 1024 * 1024; // 100GB default
-            percentage = (totalSize / maxSize) * 100;
+            maxSize = this.settings.storageLimit;
+            percentage = maxSize ? (totalSize / maxSize) * 100 : 0;
         }
 
         const storageBar = document.getElementById('storageBar');
@@ -538,7 +540,10 @@ class ModernFilingSystem {
             else if (percentage > 75) storageBar.classList.add('warning');
         }
         if (storageUsed) storageUsed.textContent = this.formatFileSize(totalSize);
-        if (storageTotal) storageTotal.textContent = this.formatFileSize(maxSize);
+        if (storageTotal) {
+            // Show "--" if no storage is configured, otherwise show the limit
+            storageTotal.textContent = (isConnected || maxSize) ? this.formatFileSize(maxSize) : '--';
+        }
     }
 
     /**
@@ -825,9 +830,9 @@ class ModernFilingSystem {
     }
 
     formatFileSize(bytes) {
-        if (bytes === 0) return '0 Bytes';
+        if (bytes === 0) return '0 MB';
         const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
