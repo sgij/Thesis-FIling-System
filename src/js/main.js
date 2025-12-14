@@ -1505,6 +1505,18 @@ class ModernFilingSystem {
                 </button>
             </div>
 
+            <!-- Analytics Tabs -->
+            <div class="analytics-tabs no-print">
+                <button class="analytics-tab active" data-tab="overview" onclick="filingSystem.switchAnalyticsTab('overview')">
+                    <i class="fas fa-chart-pie"></i> Overview
+                </button>
+                <button class="analytics-tab" data-tab="audit" onclick="filingSystem.switchAnalyticsTab('audit')">
+                    <i class="fas fa-clipboard-list"></i> Audit Log
+                </button>
+            </div>
+
+            <!-- Overview Tab Content -->
+            <div class="analytics-tab-content active" id="analytics-tab-overview">
             <div class="analytics-grid">
                 <!-- Storage Overview -->
                 <div class="analytics-card">
@@ -1612,8 +1624,10 @@ class ModernFilingSystem {
                     </div>
                 </div>
             </div>
+            </div>
 
-            <!-- Audit Log Section -->
+            <!-- Audit Log Tab Content -->
+            <div class="analytics-tab-content" id="analytics-tab-audit">
             <div class="audit-log-section">
                 <div class="audit-log-header">
                     <h2><i class="fas fa-clipboard-list"></i> Audit Log</h2>
@@ -1676,6 +1690,7 @@ class ModernFilingSystem {
                         <span>${this.getMostActiveAction(auditLogs)}</span>
                     </div>
                 </div>
+            </div>
             </div>
 
             <!-- Print Footer -->
@@ -1790,6 +1805,18 @@ class ModernFilingSystem {
         });
         const mostActive = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
         return `${this.getAuditActionLabel(mostActive[0])} (${mostActive[1]})`;
+    }
+
+    switchAnalyticsTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.analytics-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        });
+
+        // Update tab content
+        document.querySelectorAll('.analytics-tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === `analytics-tab-${tabName}`);
+        });
     }
 
     filterAuditLog(type) {

@@ -1827,8 +1827,55 @@ body {
     color: var(--accent-primary);
 }
 
+/* Analytics Tabs */
+.analytics-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-primary);
+    padding-bottom: 0;
+}
+
+.analytics-tab {
+    padding: 0.875rem 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.analytics-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.analytics-tab.active {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+}
+
+.analytics-tab i {
+    font-size: 1rem;
+}
+
+.analytics-tab-content {
+    display: none;
+}
+
+.analytics-tab-content.active {
+    display: block;
+}
+
 .audit-log-section {
-    margin-top: 3rem;
+    margin-top: 0;
 }
 
 .audit-log-section h3 {
@@ -2198,10 +2245,16 @@ body {
     .sidebar,
     .no-print,
     .analytics-actions,
+    .analytics-tabs,
     .audit-log-filters,
     .notification-panel,
     .file-preview-modal {
         display: none !important;
+    }
+
+    /* Show all tab content when printing */
+    .analytics-tab-content {
+        display: block !important;
     }
 
     /* Reset page structure */
