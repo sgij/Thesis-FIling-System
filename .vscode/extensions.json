@@ -1,0 +1,14 @@
+# VS Code Extensions
+
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "editorconfig.editorconfig",
+    "bradlc.vscode-tailwindcss",
+    "formulahendry.auto-rename-tag",
+    "zignd.html-css-class-completion",
+    "christian-kohler.path-intellisense",
+    "ritwickdey.liveserver"
+  ]
+}

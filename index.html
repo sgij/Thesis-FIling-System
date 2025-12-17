@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://public-frontend-cos.metadl.com/mgx/img/favicon.png" type="image/png">
+    <title>St. Clare College Filing System</title>
+    <link rel="stylesheet" href="./style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo">
+                <i class="fas fa-university"></i>
+            </div>
+            <h2>St. Clare College</h2>
+            <p>Filing System</p>
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="main-app hidden">
+        <!-- Top Navigation Bar -->
+        <nav class="top-nav">
+            <div class="nav-left">
+                <div class="logo-section">
+                    <div class="logo-icon">
+                        <i class="fas fa-university"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>St. Clare College</h1>
+                        <span>Document Management System</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-center">
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="globalSearch" placeholder="Search files, documents, or folders...">
+                    <div class="search-suggestions" id="searchSuggestions"></div>
+                </div>
+            </div>
+
+            <div class="nav-right">
+                <button class="nav-btn" id="themeToggle" onclick="toggleTheme()">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="nav-btn" id="notificationBtn">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge" id="notificationCount">0</span>
+                </button>
+                <div class="user-profile">
+                    <img src="https://ui-avatars.com/api/?name=Registrar&background=3b82f6&color=fff" alt="User">
+                    <div class="user-info">
+                        <span class="user-name">Registrar Office</span>
+                        <span class="user-role">Administrator</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Layout -->
+        <div class="app-layout">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h3>Navigation</h3>
+                </div>
+
+                <div class="sidebar-menu">
+                    <div class="menu-section">
+                        <span class="section-title">Main</span>
+                        <ul class="menu-items">
+                            <li class="menu-item active" data-page="dashboard">
+                                <i class="fas fa-home"></i>
+                                <span>Dashboard</span>
+                                <div class="menu-indicator"></div>
+                            </li>
+                            <li class="menu-item" data-page="files">
+                                <i class="fas fa-folder-open"></i>
+                                <span>My Files</span>
+                                <span class="file-count" id="totalFileCount">0</span>
+                            </li>
+                            <li class="menu-item" data-page="upload">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <span>Upload</span>
+                            </li>
+                            <li class="menu-item" data-page="recent">
+                                <i class="fas fa-clock"></i>
+                                <span>Recent</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="menu-section">
+                        <span class="section-title">Security</span>
+                        <ul class="menu-items">
+                            <li class="menu-item" data-page="secure">
+                                <i class="fas fa-shield-alt"></i>
+                                <span>Secure Files</span>
+                                <span class="secure-count" id="secureFileCount">0</span>
+                            </li>
+                            <li class="menu-item" data-page="trash">
+                                <i class="fas fa-trash-alt"></i>
+                                <span>Trash</span>
+                                <span class="trash-count" id="trashFileCount">0</span>
+                            </li>
+                            <li class="menu-item" data-page="backup">
+                                <i class="fas fa-database"></i>
+                                <span>Backup</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="menu-section">
+                        <span class="section-title">System</span>
+                        <ul class="menu-items">
+                            <li class="menu-item" data-page="analytics">
+                                <i class="fas fa-chart-bar"></i>
+                                <span>Analytics</span>
+                            </li>
+                            <li class="menu-item" data-page="settings">
+                                <i class="fas fa-cog"></i>
+                                <span>Settings</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="sidebar-footer">
+                    <div class="storage-info">
+                        <div class="storage-header">
+                            <i class="fas fa-hdd"></i>
+                            <span>Storage</span>
+                        </div>
+                        <div class="storage-bar">
+                            <div class="storage-used" id="storageBar"></div>
+                        </div>
+                        <div class="storage-text">
+                            <span id="storageUsed">0 MB</span> / <span id="storageTotal">100 MB</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="main-content">
+                <!-- Dashboard Page -->
+                <div class="page active" id="dashboard">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <h2>Dashboard</h2>
+                            <p>Welcome back! Here's what's happening with your documents.</p>
+                        </div>
+                        <div class="page-actions">
+                            <button class="btn btn-primary" onclick="switchPage('upload')">
+                                <i class="fas fa-plus"></i>
+                                Quick Upload
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card primary">
+                            <div class="stat-icon">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="dashTotalFiles">0</div>
+                                <div class="stat-label">Total Documents</div>
+                                <div class="stat-change positive">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>+12% from last month</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card success">
+                            <div class="stat-icon">
+                                <i class="fas fa-shield-check"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="dashSecureFiles">0</div>
+                                <div class="stat-label">Secure Files</div>
+                                <div class="stat-change positive">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>+5% from last month</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card warning">
+                            <div class="stat-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number" id="dashRecentFiles">0</div>
+                                <div class="stat-label">Recent Uploads</div>
+                                <div class="stat-change neutral">
+                                    <i class="fas fa-minus"></i>
+                                    <span>No change</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card info">
+                            <div class="stat-icon">
+                                <i class="fas fa-download"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-number">47</div>
+                                <div class="stat-label">Downloads Today</div>
+                                <div class="stat-change positive">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>+23% from yesterday</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="dashboard-section">
+                        <h3>Quick Actions</h3>
+                        <div class="quick-actions">
+                            <div class="action-card" onclick="switchPage('upload')">
+                                <div class="action-icon">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <h4>Upload Files</h4>
+                                <p>Add new documents to your library</p>
+                            </div>
+                            <div class="action-card" onclick="switchPage('backup')">
+                                <div class="action-icon">
+                                    <i class="fas fa-download"></i>
+                                </div>
+                                <h4>Backup Data</h4>
+                                <p>Create a backup of all your files</p>
+                            </div>
+                            <div class="action-card" onclick="filingSystem.showSecurityScan()">
+                                <div class="action-icon">
+                                    <i class="fas fa-shield-alt"></i>
+                                </div>
+                                <h4>Security Scan</h4>
+                                <p>Check file security status</p>
+                            </div>
+                            <div class="action-card" onclick="switchPage('analytics')">
+                                <div class="action-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <h4>View Reports</h4>
+                                <p>Analyze usage statistics</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="dashboard-section">
+                        <div class="section-header">
+                            <h3>Recent Activity</h3>
+                            <button class="btn btn-ghost" onclick="switchPage('recent')">View All</button>
+                        </div>
+                        <div class="activity-list" id="recentActivity">
+                            <!-- Activity items will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Files Page -->
+                <div class="page" id="files">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <h2>My Files</h2>
+                            <p>Manage and organize your documents</p>
+                        </div>
+                        <div class="page-actions">
+                            <div class="view-controls">
+                                <button class="view-btn active" data-view="grid">
+                                    <i class="fas fa-th"></i>
+                                </button>
+                                <button class="view-btn" data-view="list">
+                                    <i class="fas fa-list"></i>
+                                </button>
+                            </div>
+                            <div class="filter-controls">
+                                <select id="fileTypeFilter" class="filter-select">
+                                    <option value="">All Types</option>
+                                    <option value="pdf">PDF</option>
+                                    <option value="doc">Documents</option>
+                                    <option value="image">Images</option>
+                                    <option value="xlsx">Spreadsheets</option>
+                                </select>
+                                <select id="sortFilter" class="filter-select">
+                                    <option value="date">Sort by Date</option>
+                                    <option value="name">Sort by Name</option>
+                                    <option value="size">Sort by Size</option>
+                                    <option value="type">Sort by Type</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="files-container">
+                        <div class="files-grid" id="filesGrid">
+                            <!-- Files will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Page -->
+                <div class="page" id="upload">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <h2>Upload Files</h2>
+                            <p>Add new documents to your filing system</p>
+                        </div>
+                    </div>
+
+                    <div class="upload-container">
+                        <div class="upload-zone" id="uploadZone">
+                            <div class="upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <h3>Drag & Drop Files Here</h3>
+                            <p>Or click to browse and select files</p>
+                            <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.xlsx,.pptx">
+                            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                Choose Files
+                            </button>
+                        </div>
+
+                        <div class="upload-options">
+                            <div class="option-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="encryptUpload" onchange="togglePasswordInput()">
+                                    <span class="checkmark"></span>
+                                    <div class="label-content">
+                                        <strong>Encrypt Files</strong>
+                                        <small>Add password protection to sensitive documents</small>
+                                    </div>
+                                </label>
+
+                                <!-- Custom Password Input -->
+                                <div class="password-input-group" id="passwordInputGroup" style="display: none;">
+                                    <div class="password-option">
+                                        <label class="radio-label">
+                                            <input type="radio" name="passwordType" value="custom" checked>
+                                            <span class="radio-mark"></span>
+                                            <span>Set Custom Password</span>
+                                        </label>
+                                        <div class="custom-password-input">
+                                            <input type="password" id="customPassword" placeholder="Enter your password" maxlength="50">
+                                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('customPassword')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <div class="password-strength" id="passwordStrength">
+                                            <div class="strength-bar">
+                                                <div class="strength-fill"></div>
+                                            </div>
+                                            <span class="strength-text">Enter a password</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="password-option">
+                                        <label class="radio-label">
+                                            <input type="radio" name="passwordType" value="auto">
+                                            <span class="radio-mark"></span>
+                                            <span>Generate Secure Password</span>
+                                        </label>
+                                        <div class="auto-password-display" id="autoPasswordDisplay" style="display: none;">
+                                            <div class="generated-password">
+                                                <span id="generatedPassword"></span>
+                                                <button type="button" class="copy-password" onclick="copyGeneratedPassword()">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                            <small class="password-note">Save this password - you'll need it to access the file</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="option-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="autoBackup" checked>
+                                    <span class="checkmark"></span>
+                                    <div class="label-content">
+                                        <strong>Auto Backup</strong>
+                                        <small>Automatically include in system backups</small>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="upload-progress" id="uploadProgress" style="display: none;">
+                            <div class="progress-header">
+                                <h4>Uploading Files...</h4>
+                                <span class="progress-text">0 / 0 files</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill"></div>
+                            </div>
+                            <div class="upload-files-list" id="uploadFilesList"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Other pages will be added similarly -->
+                <div class="page" id="recent">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <h2>Recent Files</h2>
+                            <p>Recently accessed and uploaded documents</p>
+                        </div>
+                    </div>
+                    <div class="files-container">
+                        <div class="files-grid" id="recentFilesGrid"></div>
+                    </div>
+                </div>
+
+                <div class="page" id="secure">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <h2>Secure Files</h2>
+                            <p>Encrypted and password-protected documents</p>
+                        </div>
+                    </div>
+                    <div class="files-container">
+                        <div class="files-grid" id="secureFilesGrid"></div>
+                    </div>
+                </div>
+
+                <div class="page" id="backup">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <h2>Backup & Restore</h2>
+                            <p>Protect your data with automated backups</p>
+                        </div>
+                    </div>
+                    <div class="backup-container">
+                        <div class="backup-cards">
+                            <div class="backup-card">
+                                <div class="backup-icon">
+                                    <i class="fas fa-download"></i>
+                                </div>
+                                <h3>Export Data</h3>
+                                <p>Download all files and settings</p>
+                                <button class="btn btn-primary" onclick="filingSystem.exportData()">
+                                    Export Now
+                                </button>
+                            </div>
+                            <div class="backup-card">
+                                <div class="backup-icon">
+                                    <i class="fas fa-upload"></i>
+                                </div>
+                                <h3>Import Data</h3>
+                                <p>Restore from backup file</p>
+                                <input type="file" id="importInput" accept=".json" style="display: none;">
+                                <button class="btn btn-primary" onclick="document.getElementById('importInput').click()">
+                                    Import Backup
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page" id="analytics">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <h2>Analytics</h2>
+                            <p>Usage statistics and insights</p>
+                        </div>
+                    </div>
+                    <div class="analytics-container">
+                        <div class="chart-placeholder">
+                            <i class="fas fa-chart-bar"></i>
+                            <h3>Analytics Dashboard</h3>
+                            <p>File usage and system statistics will be displayed here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trash Page -->
+                <div class="page" id="trash">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <h2><i class="fas fa-trash-alt"></i> Trash</h2>
+                            <p>Recently deleted files (auto-deleted after 30 days)</p>
+                        </div>
+                        <div class="page-actions">
+                            <button class="btn btn-danger" onclick="emptyTrash()">
+                                <i class="fas fa-trash"></i> Empty Trash
+                            </button>
+                        </div>
+                    </div>
+                    <div class="trash-container" id="trashContainer">
+                        <div class="trash-empty">
+                            <i class="fas fa-trash-alt"></i>
+                            <p>Trash is empty</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page" id="settings">
+                    <div class="page-header">
+                        <div class="page-title">
+                            <h2>Settings</h2>
+                            <p>Configure system preferences</p>
+                        </div>
+                    </div>
+                    <div class="settings-container">
+                        <!-- Storage Settings Section -->
+                        <div class="settings-section storage-settings-card">
+                            <h3><i class="fas fa-hdd"></i> Storage Configuration</h3>
+                            <div class="storage-status" id="storageStatus">
+                                <div class="status-row">
+                                    <span class="status-label">Connection Status:</span>
+                                    <span class="status-value" id="storageConnectionStatus">
+                                        <i class="fas fa-circle" style="color: var(--accent-danger);"></i> Not Connected
+                                    </span>
+                                </div>
+                                <div class="status-row">
+                                    <span class="status-label">Storage Location:</span>
+                                    <span class="status-value" id="storageLocationText">--</span>
+                                </div>
+                            </div>
+
+                            <div class="storage-limit-adjuster">
+                                <div class="limit-current">
+                                    <span class="label">Current Limit</span>
+                                    <span class="value" id="currentLimitDisplay">--</span>
+                                </div>
+                                <div class="limit-detected">
+                                    <span class="label">Available Space</span>
+                                    <span class="value" id="availableSpaceDisplay">--</span>
+                                </div>
+                            </div>
+
+                            <div class="storage-actions" style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-primary" onclick="openStorageSetupModal()">
+                                    <i class="fas fa-folder-open"></i> Configure Storage
+                                </button>
+                                <button class="btn btn-secondary" onclick="verifyStorageIntegrity()">
+                                    <i class="fas fa-search"></i> Verify Integrity
+                                </button>
+                                <button class="btn btn-secondary" onclick="forceSaveStorage()">
+                                    <i class="fas fa-save"></i> Force Save
+                                </button>
+                                <button class="btn btn-secondary" onclick="exportBackup()">
+                                    <i class="fas fa-download"></i> Export Backup
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>General Settings</h3>
+                            <div class="setting-item">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="autoSaveSetting">
+                                    <span class="checkmark"></span>
+                                    <div class="label-content">
+                                        <strong>Auto Save</strong>
+                                        <small>Automatically save uploaded documents</small>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="notificationsSetting">
+                                    <span class="checkmark"></span>
+                                    <div class="label-content">
+                                        <strong>Notifications</strong>
+                                        <small>Show system notifications</small>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="fileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">File Details</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <div id="securityModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Access Secure File</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="security-form">
+                    <p>This file is encrypted. Enter your password:</p>
+                    <div class="password-input-container">
+                        <input type="password" id="accessCode" placeholder="Enter your password">
+                        <button type="button" class="password-toggle" onclick="togglePasswordVisibility('accessCode')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <button class="btn btn-primary" onclick="verifyAccess()">
+                        <i class="fas fa-unlock"></i> Access File
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recovery Modal -->
+    <div id="recoveryModal" class="modal">
+        <div class="modal-content recovery-modal">
+            <div class="modal-header recovery-header">
+                <div class="recovery-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3>Data Recovery Report</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="recovery-status" id="recoveryStatus">
+                    <div class="recovery-badge success">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Recovery Successful</span>
+                    </div>
+                </div>
+                <div class="recovery-details" id="recoveryDetails">
+                    <div class="detail-item">
+                        <span class="detail-label">Source:</span>
+                        <span class="detail-value" id="recoverySource">--</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Files Recovered:</span>
+                        <span class="detail-value" id="recoveryFilesCount">--</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Issues Found:</span>
+                        <span class="detail-value" id="recoveryIssues">--</span>
+                    </div>
+                </div>
+                <div class="recovery-actions">
+                    <button class="btn btn-secondary" onclick="closeRecoveryModal()">
+                        <i class="fas fa-times"></i> Dismiss
+                    </button>
+                    <button class="btn btn-primary" onclick="verifyStorageIntegrity()">
+                        <i class="fas fa-search"></i> Verify Storage
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage Setup Modal -->
+    <div id="storageSetupModal" class="modal">
+        <div class="modal-content storage-setup-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-hdd"></i> Storage Setup</h3>
+            </div>
+            <div class="modal-body">
+                <!-- Step 1: Select Folder -->
+                <div class="setup-step" id="setupStep1">
+                    <div class="step-icon">
+                        <i class="fas fa-folder-open"></i>
+                    </div>
+                    <h4>Step 1: Select Storage Folder</h4>
+                    <p>Choose a folder where your documents will be stored. This can be on your local drive, network share, or external storage.</p>
+                    <div class="step-info">
+                        <div class="info-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Files are stored directly on your disk</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Supports 1-2 TB+ storage</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Data survives browser reset</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-lg" onclick="selectStorageFolder()">
+                        <i class="fas fa-folder-plus"></i> Select Folder
+                    </button>
+                </div>
+
+                <!-- Step 2: Configure Limit -->
+                <div class="setup-step hidden" id="setupStep2">
+                    <div class="step-icon success">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <h4>Step 2: Configure Storage Limit</h4>
+                    <p>Folder connected: <strong id="selectedFolderName">--</strong></p>
+
+                    <div class="storage-detection">
+                        <div class="detected-storage">
+                            <span class="label">Detected Available Space:</span>
+                            <span class="value" id="detectedStorageValue">--</span>
+                        </div>
+                    </div>
+
+                    <div class="limit-config">
+                        <label for="storageLimitInput">Set Storage Limit:</label>
+                        <div class="limit-input-group">
+                            <input type="number" id="storageLimitInput" min="1" max="10000" value="500">
+                            <select id="storageLimitUnit">
+                                <option value="GB" selected>GB</option>
+                                <option value="TB">TB</option>
+                            </select>
+                        </div>
+                        <div class="quick-limits">
+                            <button class="quick-btn" onclick="setQuickLimit(250, 'GB')">250 GB</button>
+                            <button class="quick-btn" onclick="setQuickLimit(500, 'GB')">500 GB</button>
+                            <button class="quick-btn" onclick="setQuickLimit(1, 'TB')">1 TB</button>
+                            <button class="quick-btn" onclick="setQuickLimit(2, 'TB')">2 TB</button>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-lg" onclick="confirmStorageSetup()">
+                        <i class="fas fa-check"></i> Complete Setup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Indicator Toast -->
+    <div id="saveIndicator" class="save-indicator hidden">
+        <div class="save-indicator-content">
+            <div class="save-spinner"></div>
+            <span class="save-text">Saving...</span>
+        </div>
+    </div>
+
+    <!-- Last Saved Indicator -->
+    <div id="lastSavedIndicator" class="last-saved-indicator">
+        <i class="fas fa-cloud-upload-alt"></i>
+        <span id="lastSavedText">Not saved yet</span>
+    </div>
+
+    <script type="module" src="./script.js"></script>
+</body>
+
+</html>
