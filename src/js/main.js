@@ -10,6 +10,19 @@ class ModernFilingSystem {
         this.currentPage = 'dashboard';
         this.currentView = 'grid';
         this.notifications = [];
+        this.authStorageKey = 'modernFilingAuthenticated';
+        this.userStorageKey = 'modernFilingCurrentUser';
+        this.defaultLogin = {
+            username: 'admin',
+            password: 'admin123'
+        };
+        this.isAuthenticated = localStorage.getItem(this.authStorageKey) === 'true';
+        this.currentUser = JSON.parse(localStorage.getItem(this.userStorageKey)) || {
+            name: 'Registrar Office',
+            role: 'Administrator',
+            username: 'admin'
+        };
+        this.isAppInitialized = false;
 
         // Initialize File System Service for disk storage
         this.fileSystemService = new FileSystemService();
@@ -40,23 +53,241 @@ class ModernFilingSystem {
             await this.initializeStorage();
 
             this.hideLoadingScreen();
-            this.setupEventListeners();
-            this.setupNavigation();
-            this.setupDragAndDrop();
-            this.setupStorageSettings();
-            this.updateStats();
-            this.renderCurrentPage();
-            this.updateStorageInfo();
-            this.loadTheme();
-            this.generateSampleActivity();
-            this.setupPasswordInputs();
-            this.detectBrowser();
-
-            // Show setup modal if first time and File System API is supported
-            if (!this.isSetupComplete && this.fileSystemService.isSupported()) {
-                this.showStorageSetupModal();
+            if (this.isAuthenticated) {
+                this.bootApp();
+            } else {
+                this.setupLoginListeners();
+                this.showLoginScreen();
             }
         }, 2000);
+    }
+
+    bootApp() {
+        if (this.isAppInitialized) {
+            this.showMainInterface();
+            return;
+        }
+
+        this.isAppInitialized = true;
+        this.hideLoginScreen();
+        this.showMainInterface();
+        this.updateUserProfile();
+
+        this.setupEventListeners();
+        this.setupNavigation();
+        this.setupDragAndDrop();
+        this.setupStorageSettings();
+        this.updateStats();
+        this.renderCurrentPage();
+        this.updateStorageInfo();
+        this.loadTheme();
+        this.generateSampleActivity();
+        this.setupPasswordInputs();
+        this.detectBrowser();
+
+        // Show setup modal if first time and File System API is supported
+        if (!this.isSetupComplete && this.fileSystemService.isSupported()) {
+            this.showStorageSetupModal();
+        }
+    }
+
+    setupLoginListeners() {
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm && !loginForm.dataset.bound) {
+            loginForm.addEventListener('submit', (event) => this.handleLogin(event));
+            loginForm.dataset.bound = 'true';
+        }
+
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        const loginStatus = document.getElementById('loginStatus');
+
+        [loginUsername, loginPassword].forEach((input) => {
+            if (input && !input.dataset.clearStatusBound) {
+                input.addEventListener('input', () => {
+                    if (loginStatus) {
+                        loginStatus.textContent = '';
+                        loginStatus.className = 'login-status';
+                    }
+                });
+                input.dataset.clearStatusBound = 'true';
+            }
+        });
+    }
+
+    handleLogin(event) {
+        event.preventDefault();
+
+        const usernameInput = document.getElementById('loginUsername');
+        const passwordInput = document.getElementById('loginPassword');
+        const loginStatus = document.getElementById('loginStatus');
+
+        const username = usernameInput?.value.trim() || '';
+        const password = passwordInput?.value || '';
+
+        if (!username || !password) {
+            if (loginStatus) {
+                loginStatus.textContent = 'Enter both username and password.';
+                loginStatus.className = 'login-status error';
+            }
+            return;
+        }
+
+        const isValidLogin = username === this.defaultLogin.username && password === this.defaultLogin.password;
+
+        if (!isValidLogin) {
+            if (loginStatus) {
+                loginStatus.textContent = 'Invalid credentials. Use admin / admin123 to continue.';
+                loginStatus.className = 'login-status error';
+            }
+
+            if (passwordInput) {
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
+
+            return;
+        }
+
+        this.isAuthenticated = true;
+        this.currentUser = {
+            name: 'Registrar Office',
+            role: 'Administrator',
+            username
+        };
+
+        localStorage.setItem(this.authStorageKey, 'true');
+        localStorage.setItem(this.userStorageKey, JSON.stringify(this.currentUser));
+
+        if (loginStatus) {
+            loginStatus.textContent = 'Login successful. Loading your workspace...';
+            loginStatus.className = 'login-status success';
+        }
+
+        if (passwordInput) {
+            passwordInput.value = '';
+        }
+
+        this.bootApp();
+        this.addNotification('Welcome back', 'success');
+    }
+
+    showLoginScreen() {
+        const loginScreen = document.getElementById('loginScreen');
+        const mainApp = document.getElementById('mainApp');
+
+        if (loginScreen) {
+            loginScreen.classList.remove('hidden');
+        }
+
+        if (mainApp) {
+            mainApp.classList.add('hidden');
+        }
+
+        const loginUsername = document.getElementById('loginUsername');
+        if (loginUsername) {
+            loginUsername.focus();
+        }
+    }
+
+    hideLoginScreen() {
+        const loginScreen = document.getElementById('loginScreen');
+        if (loginScreen) {
+            loginScreen.classList.add('hidden');
+        }
+    }
+
+    showMainInterface() {
+        const mainApp = document.getElementById('mainApp');
+        if (mainApp) {
+            mainApp.classList.remove('hidden');
+        }
+    }
+
+    toggleUserMenu() {
+        const userProfileMenu = document.getElementById('userProfileMenu');
+        if (userProfileMenu) {
+            userProfileMenu.classList.toggle('open');
+        }
+    }
+
+    closeUserMenu() {
+        const userProfileMenu = document.getElementById('userProfileMenu');
+        if (userProfileMenu) {
+            userProfileMenu.classList.remove('open');
+        }
+    }
+
+    logout() {
+        this.isAuthenticated = false;
+        this.isAppInitialized = false;
+
+        localStorage.removeItem(this.authStorageKey);
+        localStorage.removeItem(this.userStorageKey);
+
+        this.closeUserMenu();
+
+        const loginForm = document.getElementById('loginForm');
+        const loginUsername = document.getElementById('loginUsername');
+        const loginPassword = document.getElementById('loginPassword');
+        const loginStatus = document.getElementById('loginStatus');
+
+        if (loginForm) {
+            loginForm.reset();
+        }
+
+        if (loginStatus) {
+            loginStatus.textContent = 'You have been logged out.';
+            loginStatus.className = 'login-status';
+        }
+
+        if (loginPassword) {
+            loginPassword.value = '';
+        }
+
+        if (loginUsername) {
+            loginUsername.focus();
+        }
+
+        const mainApp = document.getElementById('mainApp');
+        if (mainApp) {
+            mainApp.classList.add('hidden');
+        }
+
+        this.showLoginScreen();
+        this.addNotification('Logged out successfully', 'info');
+    }
+
+    updateUserProfile() {
+        const userName = document.querySelector('.user-name');
+        const userRole = document.querySelector('.user-role');
+        const userAvatar = document.querySelector('.user-profile img');
+        const dropdownName = document.querySelector('.user-dropdown-name');
+        const dropdownRole = document.querySelector('.user-dropdown-role');
+        const displayName = this.currentUser?.name || 'Registrar Office';
+        const displayRole = this.currentUser?.role || 'Administrator';
+
+        if (userName) {
+            userName.textContent = displayName;
+        }
+
+        if (userRole) {
+            userRole.textContent = displayRole;
+        }
+
+        if (userAvatar) {
+            const avatarLabel = encodeURIComponent(displayName);
+            userAvatar.src = `https://ui-avatars.com/api/?name=${avatarLabel}&background=3b82f6&color=fff`;
+            userAvatar.alt = displayName;
+        }
+
+        if (dropdownName) {
+            dropdownName.textContent = displayName;
+        }
+
+        if (dropdownRole) {
+            dropdownRole.textContent = displayRole;
+        }
     }
 
     /**
@@ -368,6 +599,31 @@ class ModernFilingSystem {
             notificationBtn.addEventListener('click', () => {
                 this.toggleNotificationPanel();
             });
+        }
+
+        const userProfileMenu = document.getElementById('userProfileMenu');
+        if (userProfileMenu && !userProfileMenu.dataset.bound) {
+            userProfileMenu.addEventListener('click', (event) => {
+                event.stopPropagation();
+                this.toggleUserMenu();
+            });
+            userProfileMenu.dataset.bound = 'true';
+        }
+
+        if (!document.body.dataset.userMenuBound) {
+            document.addEventListener('click', () => {
+                this.closeUserMenu();
+            });
+            document.body.dataset.userMenuBound = 'true';
+        }
+
+        if (!document.body.dataset.userMenuEscapeBound) {
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    this.closeUserMenu();
+                }
+            });
+            document.body.dataset.userMenuEscapeBound = 'true';
         }
 
         // Import functionality
@@ -3190,6 +3446,12 @@ window.verifyAccess = function() {
     } else {
         window.filingSystem.addNotification('Incorrect password', 'error');
         document.getElementById('accessCode').value = '';
+    }
+};
+
+window.logout = function() {
+    if (window.filingSystem) {
+        window.filingSystem.logout();
     }
 };
 

@@ -26,6 +26,60 @@
         </div>
     </div>
 
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen hidden">
+        <div class="login-shell">
+            <div class="login-hero">
+                <div class="login-badge">
+                    <i class="fas fa-shield-halved"></i>
+                    <span>Secure access</span>
+                </div>
+                <h1>St. Clare College</h1>
+                <p>Sign in to continue to the filing system.</p>
+                <div class="login-meta">
+                    <span><i class="fas fa-lock"></i> Protected workspace</span>
+                    <span><i class="fas fa-cloud"></i> Local session login</span>
+                </div>
+            </div>
+
+            <div class="login-card">
+                <div class="login-card-header">
+                    <div class="login-card-icon">
+                        <i class="fas fa-user-lock"></i>
+                    </div>
+                    <div>
+                        <h2>Account Login</h2>
+                        <p>Starting point for the authentication flow.</p>
+                    </div>
+                </div>
+
+                <form id="loginForm" class="login-form">
+                    <label class="login-field">
+                        <span>Username</span>
+                        <input type="text" id="loginUsername" name="username" autocomplete="username" placeholder="Enter your username" required>
+                    </label>
+
+                    <label class="login-field">
+                        <span>Password</span>
+                        <input type="password" id="loginPassword" name="password" autocomplete="current-password" placeholder="Enter your password" required>
+                    </label>
+
+                    <button type="submit" class="btn btn-primary login-submit">
+                        <i class="fas fa-right-to-bracket"></i>
+                        Sign In
+                    </button>
+
+                    <p id="loginStatus" class="login-status" aria-live="polite"></p>
+                </form>
+
+                <div class="login-hint">
+                    <span>Demo credentials</span>
+                    <strong>admin / admin123</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main App -->
     <div id="mainApp" class="main-app hidden">
         <!-- Top Navigation Bar -->
@@ -58,11 +112,22 @@
                     <i class="fas fa-bell"></i>
                     <span class="notification-badge" id="notificationCount">0</span>
                 </button>
-                <div class="user-profile">
+                <div class="user-profile" id="userProfileMenu">
                     <img src="https://ui-avatars.com/api/?name=Registrar&background=3b82f6&color=fff" alt="User">
                     <div class="user-info">
                         <span class="user-name">Registrar Office</span>
                         <span class="user-role">Administrator</span>
+                    </div>
+                    <i class="fas fa-chevron-down user-menu-caret"></i>
+                    <div class="user-dropdown" id="userDropdown">
+                        <div class="user-dropdown-header">
+                            <strong class="user-dropdown-name">Registrar Office</strong>
+                            <span class="user-dropdown-role">Administrator</span>
+                        </div>
+                        <button type="button" class="user-dropdown-item logout-action" onclick="logout()">
+                            <i class="fas fa-right-from-bracket"></i>
+                            Log out
+                        </button>
                     </div>
                 </div>
             </div>
