@@ -81,7 +81,6 @@ class ModernFilingSystem {
         this.renderCurrentPage();
         this.updateStorageInfo();
         this.loadTheme();
-        this.generateSampleActivity();
         this.setupPasswordInputs();
         this.detectBrowser();
 
@@ -924,15 +923,27 @@ class ModernFilingSystem {
         const totalFiles = this.files.length + this.secureFiles.length;
         const secureCount = this.secureFiles.length;
         const recentCount = this.getRecentFilesCount();
+        const downloadsToday = this.getActivityCount('download', this.getStartOfDay());
+        const secureRatio = totalFiles > 0 ? Math.round((secureCount / totalFiles) * 100) : 0;
 
         // Update dashboard stats
         const dashTotalFiles = document.getElementById('dashTotalFiles');
         const dashSecureFiles = document.getElementById('dashSecureFiles');
         const dashRecentFiles = document.getElementById('dashRecentFiles');
+        const dashDownloadsToday = document.getElementById('dashDownloadsToday');
+        const dashTotalFilesMeta = document.getElementById('dashTotalFilesMeta');
+        const dashSecureFilesMeta = document.getElementById('dashSecureFilesMeta');
+        const dashRecentFilesMeta = document.getElementById('dashRecentFilesMeta');
+        const dashDownloadsTodayMeta = document.getElementById('dashDownloadsTodayMeta');
 
         if (dashTotalFiles) dashTotalFiles.textContent = totalFiles;
         if (dashSecureFiles) dashSecureFiles.textContent = secureCount;
         if (dashRecentFiles) dashRecentFiles.textContent = recentCount;
+        if (dashDownloadsToday) dashDownloadsToday.textContent = downloadsToday;
+        if (dashTotalFilesMeta) dashTotalFilesMeta.textContent = totalFiles === 1 ? '1 file currently stored' : `${totalFiles} files currently stored`;
+        if (dashSecureFilesMeta) dashSecureFilesMeta.textContent = totalFiles > 0 ? `${secureRatio}% of the library is encrypted` : 'No encrypted files yet';
+        if (dashRecentFilesMeta) dashRecentFilesMeta.textContent = recentCount === 1 ? '1 upload in the last 24 hours' : `${recentCount} uploads in the last 24 hours`;
+        if (dashDownloadsTodayMeta) dashDownloadsTodayMeta.textContent = downloadsToday === 1 ? '1 download recorded in the last 24 hours' : `${downloadsToday} downloads recorded in the last 24 hours`;
 
         // Update sidebar counts
         const totalFileCount = document.getElementById('totalFileCount');
@@ -966,6 +977,23 @@ class ModernFilingSystem {
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const allFiles = [...this.files, ...this.secureFiles];
         return allFiles.filter(file => new Date(file.uploadDate) > oneDayAgo).length;
+    }
+
+    getStartOfDay() {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        return start;
+    }
+
+    getActivityCount(type, since = null) {
+        const activities = JSON.parse(localStorage.getItem('modernFilingActivities')) || [];
+
+        return activities.filter((activity) => {
+            if (activity.type !== type) return false;
+            if (!since) return true;
+
+            return new Date(activity.timestamp) >= since;
+        }).length;
     }
 
     updateStorageInfo() {
@@ -1448,11 +1476,7 @@ class ModernFilingSystem {
         const file = this.findFile(fileId);
         if (!file) return;
 
-        if (file.encrypted) {
-            this.showSecurityModal(file);
-        } else {
-            this.showFileDetails(file);
-        }
+        this.showFileDetails(file);
     }
 
     findFile(fileId) {
@@ -1497,6 +1521,7 @@ class ModernFilingSystem {
         if (!file) return;
 
         if (file.encrypted) {
+            this.closeModals();
             this.showSecurityModal(file);
         } else {
             // Download from File System if using disk storage
@@ -1857,8 +1882,8 @@ class ModernFilingSystem {
             activityList.innerHTML = `
                 <div class="activity-item">
                     <div class="activity-content">
-                        <div class="activity-title">No recent activity</div>
-                        <div class="activity-description">Start uploading files to see activity here</div>
+                        <div class="activity-title">No activity recorded yet</div>
+                        <div class="activity-description">Upload, download, or back up files to populate this feed</div>
                     </div>
                 </div>
             `;
@@ -1912,19 +1937,7 @@ class ModernFilingSystem {
     }
 
     generateSampleActivity() {
-        if (localStorage.getItem('modernFilingActivities')) return;
-
-        const sampleActivities = [
-            { type: 'upload', description: 'Uploaded student_records.pdf' },
-            { type: 'backup', description: 'System backup completed' },
-            { type: 'download', description: 'Downloaded enrollment_form.docx' }
-        ];
-
-        sampleActivities.forEach((activity, index) => {
-            setTimeout(() => {
-                this.addActivity(activity.type, activity.description);
-            }, index * 1000);
-        });
+        return;
     }
 
     // Theme management
@@ -3889,7 +3902,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!file) return;
 
     if (file.encrypted) {
-      this.showSecurityModal ? this.showSecurityModal(file) : null;
+            this.closeModals ? this.closeModals() : null;
+            this.showSecurityModal ? this.showSecurityModal(file) : null;
     } else {
       this.addNotification ? this.addNotification(`Downloading ${file.name}...`, 'info') : null;
       if (file.content && file.content.startsWith('data:')) {
@@ -3928,11 +3942,7 @@ document.addEventListener('DOMContentLoaded', function() {
   ModernFilingSystem.prototype.openFile = function(fileId) {
     const file = this.findFile ? this.findFile(fileId) : null;
     if (!file) return;
-    if (file.encrypted) {
-      this.showSecurityModal ? this.showSecurityModal(file) : null;
-    } else {
-      this.showFileDetails ? this.showFileDetails(file) : null;
-    }
+        this.showFileDetails ? this.showFileDetails(file) : null;
   };
 
   ModernFilingSystem.prototype.showSecurityModal = function(file) {
