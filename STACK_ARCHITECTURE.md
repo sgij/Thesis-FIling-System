@@ -1,0 +1,323 @@
+# Tech Stack Visualization & Integration Guide
+
+## 🗼 Complete Stack Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        PRESENTATION LAYER                        │
+│                                                                   │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │                       HTML5 MARKUP                         │ │
+│  │  • Semantic structure                                      │ │
+│  │  • Accessible forms & inputs                              │ │
+│  │  • File upload interface                                  │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                              ↕                                    │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │                  JAVASCRIPT LOGIC                          │ │
+│  │  • FileManager.js (high-level operations)                │ │
+│  │  • FileService.js (API calls)                           │ │
+│  │  • Event handling & DOM manipulation                     │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                              ↕                                    │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │               TAILWIND CSS STYLING                         │ │
+│  │  • Responsive design                                      │ │
+│  │  • Dark/light theme                                       │ │
+│  │  • Component styling                                      │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│              Running on: http://localhost:5173                   │
+└──────────────────────────────────────────────────────────────────┘
+                                  ↕
+                    Fetch API with JWT Token
+                    (Authorization Header)
+                                  ↕
+┌──────────────────────────────────────────────────────────────────┐
+│                      APPLICATION LAYER                           │
+│                                                                   │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │                   EXPRESS.JS SERVER                        │ │
+│  │  express.js - HTTP server & routing                       │ │
+│  │  CORS enabled - handles cross-origin requests             │ │
+│  │  Body parser - processes JSON & form data                │ │
+│  │                                                             │ │
+│  │  Routes:                                                   │ │
+│  │  ├── GET  /api/files                                     │ │
+│  │  ├── GET  /api/files/secure                              │ │
+│  │  ├── GET  /api/files/stats                               │ │
+│  │  ├── GET  /api/files/:id/download                        │ │
+│  │  ├── POST /api/files/upload                              │ │
+│  │  ├── POST /api/files/:id/access                          │ │
+│  │  ├── DELETE /api/files/:id                               │ │
+│  │  └── DELETE /api/files/secure/:id                        │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                              ↕                                    │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │                  CONTROLLERS & MIDDLEWARE                  │ │
+│  │  fileController.js - Business logic                       │ │
+│  │  authenticateToken - JWT verification                    │ │
+│  │  Error handling & validation                              │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                              ↕                                    │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │                     PRISMA ORM                             │ │
+│  │  • Type-safe database queries                             │ │
+│  │  • Relationship management                                │ │
+│  │  • Migration support                                      │ │
+│  │  • Query generation                                       │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│              Running on: http://localhost:3001                   │
+└──────────────────────────────────────────────────────────────────┘
+                                  ↕
+                         SQL Queries
+                        (Generated by Prisma)
+                                  ↕
+┌──────────────────────────────────────────────────────────────────┐
+│                      DATA LAYER                                  │
+│                                                                   │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │                   POSTGRESQL DATABASE                      │ │
+│  │                                                             │ │
+│  │  Tables:                                                   │ │
+│  │  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐ │ │
+│  │  │   User      │  │    File      │  │   SecureFile     │ │ │
+│  │  ├─────────────┤  ├──────────────┤  ├──────────────────┤ │ │
+│  │  │ id          │  │ id           │  │ id               │ │ │
+│  │  │ username    │  │ userId (FK)  │  │ userId (FK)      │ │ │
+│  │  │ password    │  │ name         │  │ name             │ │ │
+│  │  │ email       │  │ type         │  │ encrypted        │ │ │
+│  │  │ role        │  │ size         │  │ encryptedContent │ │ │
+│  │  │ ...more...  │  │ contentB64   │  │ iv, salt         │ │ │
+│  │  └─────────────┘  │ uploadedAt   │  │ ...more...       │ │ │
+│  │        ↑           │ ...more...   │  └──────────────────┘ │ │
+│  │        │           └──────────────┘           ↑            │ │
+│  │        └──────────────┬──────────────────────┘            │ │
+│  │                       │                                    │ │
+│  │  ┌──────────────────────────────────────────────────┐    │ │
+│  │  │            ActivityLog                           │    │ │
+│  │  ├──────────────────────────────────────────────────┤    │ │
+│  │  │ id │ userId (FK) │ type │ description │ createdAt     │ │
+│  │  └──────────────────────────────────────────────────┘    │ │
+│  │                                                             │ │
+│  │  Data stored: ~5GB per user (configurable)               │ │
+│  │  Indexes: userId, uploadedAt for performance             │ │
+│  │  Soft delete: deletedAt field for retention             │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                   │
+│       Database: st_clare_filing_system                           │
+│       Connection: postgresql://localhost:5432/...               │
+│       Driver: PostgreSQL 12+                                    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+## 🔄 Request/Response Flow Example
+
+### Upload File Flow
+```
+1. USER ACTION
+   └─> Selects file in browser
+
+2. JAVASCRIPT (FileManager.js)
+   └─> handleFilesSelected()
+       └─> FileService.uploadFile(file)
+
+3. FILE ENCODING (FileService.js)
+   └─> fileToBase64(file)
+   └─> Creates payload with:
+       • name, type, size, mimeType
+       • contentBase64 (encoded file)
+       • password (if encrypted)
+
+4. HTTP REQUEST
+   POST /api/files/upload
+   Authorization: Bearer JWT_TOKEN
+   {
+     "name": "document.pdf",
+     "contentBase64": "JVBERi0xLjQ...",
+     ...
+   }
+
+5. EXPRESS SERVER
+   └─> fileRoutes.js
+       └─> uploadFile() controller
+
+6. VALIDATION
+   └─> Check required fields
+   └─> Validate file size
+   └─> Verify user authentication
+
+7. DATABASE OPERATION (Prisma)
+   └─> prisma.file.create({
+         data: {
+           userId: "user_123",
+           name: "document.pdf",
+           contentBase64: "...",
+           ...
+         }
+       })
+
+8. POSTGRESQL
+   INSERT INTO "File" (id, userId, name, contentBase64, ...)
+   VALUES ('xyz', 'user_123', 'document.pdf', '...', ...)
+
+9. RESPONSE
+   200 OK
+   {
+     "success": true,
+     "file": {
+       "id": "xyz",
+       "name": "document.pdf",
+       "uploadedAt": "2024-01-15T10:30:00Z"
+     }
+   }
+
+10. FRONTEND UPDATE
+    └─> FileManager.showSuccess()
+    └─> Reload file list
+    └─> Update UI
+```
+
+## 📦 Technology Integration Points
+
+### Frontend ↔ Backend
+```
+FileManager        HTTP/REST        Express.js
+   +
+   ├─> Event Handlers ──> FileService ──POST--> fileRoutes
+   │                           │                    │
+   │                          JWT Token            Auth Middleware
+   │                           │                    │
+   ├─> UI Updates <─── FileService <──GET----- fileController
+   │
+   └─> Notifications         Response
+                             Processing
+```
+
+### Backend ↔ Database
+```
+Express.js         Prisma           PostgreSQL
+   │                  │                 │
+   ├─> Controller ────> Model ────SQL──> Table
+   │                  │                 │
+   ├─> Service ─── Query ──────────────> Index
+   │                  │                 │
+   └─> Middleware    Relations          ACID
+                     Type Safety        Constraints
+```
+
+## 🎯 Feature Implementation Map
+
+### Implemented Features ✅
+```
+📄 File Management
+   ├─ Upload (regular & encrypted)
+   ├─ Download
+   ├─ Delete (soft delete)
+   └─ List with filters & sorting
+
+🔒 Security
+   ├─ JWT Authentication
+   ├─ User ownership verification
+   ├─ Encryption support
+   └─ Audit logging
+
+📊 Analytics
+   ├─ File count
+   ├─ Storage usage
+   ├─ Activity tracking
+   └─ Statistics API
+
+💾 Database
+   ├─ PostgreSQL integration
+   ├─ Prisma ORM
+   ├─ Migrations ready
+   └─ Indexing optimized
+```
+
+## 🚀 Deployment Architecture
+
+```
+Production Setup:
+┌────────────────────────────────────┐
+│     Frontend Server (Nginx)        │
+│  • Static HTML/CSS/JS files        │
+│  • Serves from dist/ folder        │
+│  └─ Port 80/443                    │
+└────────────────────────────────────┘
+          ↕ HTTPS
+┌────────────────────────────────────┐
+│     API Server (Node.js + Express) │
+│  • Business logic                  │
+│  • File processing                 │
+│  └─ Port 3001 (internal)          │
+└────────────────────────────────────┘
+          ↕ TCP
+┌────────────────────────────────────┐
+│  Database Server (PostgreSQL)      │
+│  • Data persistence                │
+│  └─ Port 5432 (internal)          │
+└────────────────────────────────────┘
+```
+
+## 📋 Implementation Checklist
+
+### Phase 1: Setup ✅
+- [x] Express.js server created
+- [x] Prisma ORM integrated
+- [x] PostgreSQL schema defined
+- [x] Routes configured
+- [x] CORS enabled
+
+### Phase 2: Controllers & Services ✅
+- [x] File controller with CRUD operations
+- [x] File routes with authentication
+- [x] FileService client library
+- [x] FileManager UI module
+- [x] Error handling & validation
+
+### Phase 3: Ready for Testing 🎯
+- [ ] PostgreSQL database created
+- [ ] Environment variables configured
+- [ ] Database migrations run
+- [ ] Backend server started
+- [ ] Frontend connected to API
+- [ ] Sample files uploaded
+
+### Phase 4: Production (Future)
+- [ ] File size validation
+- [ ] Encryption implementation
+- [ ] Performance optimization
+- [ ] Backup/restore
+- [ ] Admin dashboard
+
+---
+
+## 📖 File Navigation
+
+```
+Your Project/
+│
+├── Backend API
+│   ├── Controllers: fileController.js ✨
+│   ├── Routes: fileRoutes.js ✨
+│   ├── Server: server.js (updated) ✅
+│   └── Data: schema.prisma
+│
+├── Frontend UI
+│   ├── Services: FileService.js ✨
+│   ├── Modules: FileManager.js ✨
+│   └── Markup: index.html
+│
+└── Documentation
+    ├── IMPLEMENTATION_SUMMARY.md (overview)
+    ├── FILE_STORAGE_GUIDE.md (detailed reference)
+    ├── QUICK_START_FILES.md (setup & testing)
+    └── this file (architecture)
+```
+
+---
+
+**Ready to Get Started?**
+→ Follow `QUICK_START_FILES.md` for step-by-step setup instructions

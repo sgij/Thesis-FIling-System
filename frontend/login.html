@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://public-frontend-cos.metadl.com/mgx/img/favicon.png" type="image/png">
+    <title>St. Clare College Filing System</title>
+    <link rel="stylesheet" href ="css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-shell">
+            <div class="login-hero">
+                <div class="login-badge">
+                    <i class="fas fa-shield-halved"></i>
+                    <span>Secure access</span>
+                </div>
+                <h1>St. Clare College</h1>
+                <p>Sign in to continue to the filing system.</p>
+                <div class="login-meta">
+                    <span><i class="fas fa-lock"></i> Protected workspace</span>
+                    <span><i class="fas fa-cloud"></i> Local session login</span>
+                </div>
+            </div>
+
+            <div class="login-card">
+                <div class="login-card-header">
+                    <div class="login-card-icon">
+                        <i class="fas fa-user-lock"></i>
+                    </div>
+                    <div>
+                        <h2>Account Login</h2>
+                        <p>Starting point for the authentication flow.</p>
+                    </div>
+                </div>
+
+                <form id="loginForm" class="login-form">
+                    <label class="login-field">
+                        <span>Username</span>
+                        <input type="text" id="loginUsername" name="username" autocomplete="username" placeholder="Enter your username" required>
+                    </label>
+
+                    <label class="login-field">
+                        <span>Password</span>
+                        <input type="password" id="loginPassword" name="password" autocomplete="current-password" placeholder="Enter your password" required>
+                    </label>
+
+                    <button type="submit" class="btn btn-primary login-submit">
+                        <i class="fas fa-right-to-bracket"></i>
+                        Sign In
+                    </button>
+
+                    <p id="loginStatus" class="login-status" aria-live="polite"></p>
+                </form>
+
+                <div class="login-hint">
+                    <span>Demo credentials</span>
+                    <strong>admin / admin123</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script type="module">
+        // Handle login form submission
+        const loginForm = document.getElementById('loginForm');
+        const loginStatus = document.getElementById('loginStatus');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                // Show loading state
+                loginStatus.textContent = 'Logging in...';
+                loginStatus.style.color = 'var(--accent-info)';
+                console.log('Attempting login with:', username);
+
+                // Call backend authentication endpoint directly
+                const apiUrl = 'http://localhost:3001/api/auth/login';
+                console.log('Calling API:', apiUrl);
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (response.ok && data.data && data.data.token) {
+                    // Store auth token and expiry
+                    localStorage.setItem('auth_token', data.data.token);
+                    // Set expiry to 7 days from now
+                    const expiryTime = Date.now() + (7 * 24 * 60 * 60 * 1000);
+                    localStorage.setItem('auth_token_expiry', expiryTime.toString());
+                    if (data.data.user) {
+                        localStorage.setItem('auth_user', JSON.stringify(data.data.user));
+                    }
+
+                    loginStatus.textContent = 'Success! Redirecting...';
+                    loginStatus.style.color = 'var(--accent-success)';
+
+                    // Redirect to index.html
+                    setTimeout(() => {
+                        window.location.href = './index.html';
+                    }, 500);
+                } else {
+                    loginStatus.textContent = data.error || data.message || 'Login failed. Check console.';
+                    loginStatus.style.color = 'var(--accent-danger)';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                loginStatus.textContent = 'Network error: ' + error.message;
+                loginStatus.style.color = 'var(--accent-danger)';
+            }
+        });
+    </script>
+</body>
+
+</html>

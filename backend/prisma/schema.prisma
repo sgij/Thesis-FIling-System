@@ -1,0 +1,105 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id        String    @id @default(cuid())
+  username  String    @unique @db.VarChar(100)
+  password  String    @db.Text // Store hashed password
+  email     String    @unique @db.VarChar(255)
+  fullName  String?   @db.VarChar(255)
+  role      String    @default("user") @db.VarChar(50) // admin, user, etc.
+  avatar    String?   @db.Text // URL to avatar image
+
+  // File management
+  files     File[]
+  secureFiles SecureFile[]
+  activityLogs ActivityLog[]
+
+  // Metadata
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  lastLogin DateTime?
+  isActive  Boolean   @default(true)
+
+  @@index([username])
+  @@index([email])
+}
+
+// File model for regular files
+model File {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String    @db.VarChar(255)
+  type      String    @db.VarChar(50) // pdf, doc, image, etc.
+  size      BigInt    // File size in bytes
+  mimeType  String    @db.VarChar(100)
+
+  // Storage info - if using local file storage
+  storagePath String? @db.Text // Path to stored file on disk
+  contentBase64 String? @db.Text // Base64 encoded content (for small files)
+
+  // Metadata
+  uploadedAt DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime? // Soft delete support
+
+  @@index([userId])
+  @@index([uploadedAt])
+}
+
+// SecureFile model for encrypted files
+model SecureFile {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String    @db.VarChar(255)
+  type      String    @db.VarChar(50)
+  size      BigInt
+  mimeType  String    @db.VarChar(100)
+
+  // Security info
+  encrypted Boolean   @default(true)
+  passwordHint String? @db.VarChar(255) // Hint for encrypted files
+  encryptedContent String @db.Text // Encrypted content in Base64
+  iv        String    @db.VarChar(255) // Initialization vector
+  salt      String    @db.VarChar(255) // Salt for key derivation
+
+  // Storage info - if using local file storage
+  storagePath String? @db.Text
+
+  // Metadata
+  uploadedAt DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime? // Soft delete support
+
+  @@index([userId])
+  @@index([uploadedAt])
+}
+
+// Activity log for file operations
+model ActivityLog {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      String    @db.VarChar(50) // upload, download, delete, view, etc.
+  description String  @db.Text
+
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
